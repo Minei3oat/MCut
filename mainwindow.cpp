@@ -78,9 +78,32 @@ void MainWindow::on_prev_frame_clicked()
 
 void MainWindow::on_next_frame_clicked()
 {
-    current_frame++;
+    if (current_frame < frame_count-1) {
+        current_frame++;
+        render_frame();
+    }
+}
+
+
+void MainWindow::on_prev_frame_2_clicked()
+{
+    current_frame -= 24;
+    if (current_frame < 0) {
+        current_frame = 0;
+    }
     render_frame();
 }
+
+
+void MainWindow::on_next_frame_2_clicked()
+{
+    current_frame += 24;
+    if (current_frame >= frame_count) {
+        current_frame = frame_count - 1;
+    }
+    render_frame();
+}
+
 
 void MainWindow::render_frame()
 {
@@ -98,29 +121,29 @@ void MainWindow::render_frame()
     AVPacket *packet = av_packet_alloc();
     AVFrame *frame = av_frame_alloc();
 
-    // get frame
-    int current = current_frame;
-    while (!frame_infos[current].is_keyframe) {
-        current--;
-        if (current < 0) {
-            printf("found no packet with id %ld\n", current_frame);
-            return;
-        }
-    }
+    // find keyframe
+    int current = find_iframe_before(frame_infos, current_frame);
     printf("starting decoding at frame %d\n", current);
 
+    // get frame
     int64_t offset = frame_infos[current].offset;
     if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-        printf("Seek failed\n");
+        puts("Seek failed");
         return;
     }
     while(current <= current_frame) {
         if (av_read_frame(format_context, packet)) {
-            printf("failed to read packet\n");
+            puts("failed to read packet");
+
+            // flush decoder
+            avcodec_send_packet(codec_context, NULL);
+            while (current <= current_frame && avcodec_receive_frame(codec_context, frame) == 0) {
+                printf("got frame %d\n", current);
+                current++;
+            }
             break;
         }
         if (packet->stream_index == video_stream->index) {
-            printf("found packet for stream\n");
             avcodec_send_packet(codec_context, packet);
             while (current <= current_frame && avcodec_receive_frame(codec_context, frame) == 0) {
                 printf("got frame %d\n", current);
@@ -128,10 +151,12 @@ void MainWindow::render_frame()
             }
         }
         av_packet_unref(packet);
-        printf("going to next packet\n");
     }
     if (frame->data[0] == NULL) {
-        printf("data[0] is NULL\n");
+        puts("data[0] is NULL");
+        av_frame_free(&frame);
+        av_packet_free(&packet);
+        avcodec_free_context(&codec_context);
         return;
     }
 
@@ -152,6 +177,11 @@ void MainWindow::render_frame()
     ui->video_frame->update();
     printf("rendered frame %lu\n", current_frame);
 
+    // update current position
+    char buffer[64] = "";
+    sprintf(buffer, "%lu [%c]", current_frame, av_get_picture_type_char(frame->pict_type));
+    ui->current_pos->setText(QString(buffer));
+
     // cleanup
     sws_freeContext(sws_context);
     av_frame_free(&frame);
@@ -167,26 +197,69 @@ void MainWindow::cache_frame_infos()
     }
 
     // get decoder
-    const AVCodec *codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
-    AVCodecContext *codec_context = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codec_context, video_stream->codecpar);
-    avcodec_open2(codec_context, codec, NULL);
+    const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    AVCodecContext *decode_context = avcodec_alloc_context3(decoder);
+    avcodec_parameters_to_context(decode_context, video_stream->codecpar);
+    avcodec_open2(decode_context, decoder, NULL);
 
     // preparations
     AVPacket *packet = av_packet_alloc();
 
+    // find all frames
     frame_count = 0;
     frame_info_t *current = frame_infos;
+    long start_pts = LONG_MIN;
     while (av_read_frame(format_context, packet) == 0) {
         if (packet->stream_index == video_stream->index) {
-            current->offset = packet->pos;
-            current->is_keyframe = packet->flags & AV_PKT_FLAG_KEY;
-            printf("found frame at %lu; is key: %d\n", current->offset, current->is_keyframe);
+            // skip to first key frame and ignore frames with a pts before first keyframe
+            if ((frame_count == 0 && !(packet->flags & AV_PKT_FLAG_KEY)) || packet->pts < start_pts) {
+                continue;
+            } else if (frame_count == 0) {
+                start_pts = packet->pts;
+            }
+
+            frame_info_t *destination = current;
+            while (destination > frame_infos && (destination-1)->pts > packet->pts) {
+                memcpy(destination, destination-1, sizeof(*destination));
+                destination--;
+            }
+            destination->offset = packet->pos;
+            destination->pts = packet->pts;
+            destination->dts = packet->dts;
+            destination->is_keyframe = packet->flags & AV_PKT_FLAG_KEY;
+            destination->is_corrupt  = packet->flags & AV_PKT_FLAG_CORRUPT;
             current++;
             frame_count++;
             av_packet_unref(packet);
         }
     }
+
+    current = frame_infos;
+    for (unsigned long i = 0; i < frame_count; i++, current++) {
+        printf("found frame %lu at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", i, current->offset, current->pts, current->dts, current->is_keyframe, current->is_corrupt);
+    }
+
+    av_packet_free(&packet);
+}
+ssize_t MainWindow::find_iframe_before(frame_info_t *frame_infos, ssize_t search)
+{
+    ssize_t iframe_before = search;
+    while (iframe_before >= 0 && !frame_infos[iframe_before].is_keyframe) {
+        iframe_before--;
+    }
+    return iframe_before;
+}
+
+
+ssize_t MainWindow::find_iframe_after(frame_info_t *frame_infos, ssize_t search, ssize_t frame_count)
+{
+    ssize_t iframe_after = search;
+    while (iframe_after < frame_count && !frame_infos[iframe_after].is_keyframe) {
+        iframe_after++;
+    }
+    return iframe_after >= frame_count ? -1 : iframe_after;
+}
+
 
     av_packet_free(&packet);
 }

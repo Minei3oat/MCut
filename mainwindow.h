@@ -11,8 +11,11 @@ extern "C" {
 }
 
 typedef struct {
-    uint64_t offset;
+    unsigned long offset;
+    long pts;
+    long dts;
     bool is_keyframe;
+    bool is_corrupt;
 } frame_info_t;
 
 QT_BEGIN_NAMESPACE
@@ -35,16 +38,21 @@ private slots:
     void on_prev_frame_clicked();
     void on_next_frame_clicked();
 
-private:   
+    void on_prev_frame_2_clicked();
+    void on_next_frame_2_clicked();
+
+private:
     void render_frame();
     void cache_frame_infos();
+    ssize_t find_iframe_before(frame_info_t *frame_infos, ssize_t search);
+    ssize_t find_iframe_after(frame_info_t *frame_infos, ssize_t search, ssize_t frame_count);
 
     Ui::MainWindow *ui;
 
     // store important infos here for testing
     AVFormatContext *format_context = NULL;
     AVStream *video_stream = NULL;
-    unsigned long current_frame = -1;
+    long current_frame = -1;
     unsigned long frame_count = 0;
     frame_info_t *frame_infos = NULL;
 };
