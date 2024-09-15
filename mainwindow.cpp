@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <QFileDialog>
 
@@ -30,6 +31,9 @@ void MainWindow::on_actionOpen_Video_triggered()
 
     // select file
     std::string filename = QFileDialog::getOpenFileName(this, "Open Video").toStdString();
+    if (filename.empty()) {
+        return;
+    }
 
     // open file
     avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
@@ -55,6 +59,9 @@ void MainWindow::on_actionOpen_Video_triggered()
             video_stream = stream;
         } else if (local_codec_parameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             printf("Audio Codec: %d channels, sample rate %d\n", local_codec_parameters->ch_layout.nb_channels, local_codec_parameters->sample_rate);
+            if (!audio_stream) {
+                audio_stream = stream;
+            }
         }
         // general
         printf("\tCodec %s ID %d bit_rate %ld\n", local_codec->long_name, local_codec->id, local_codec_parameters->bit_rate);
@@ -65,6 +72,9 @@ void MainWindow::on_actionOpen_Video_triggered()
 
     current_frame = 0;
     render_frame();
+
+    cut_in = -1;
+    cut_out = -1;
 }
 
 void MainWindow::on_prev_frame_clicked()
@@ -104,66 +114,111 @@ void MainWindow::on_next_frame_2_clicked()
     render_frame();
 }
 
-
-void MainWindow::render_frame()
+/**
+ * Extract a frame from the stream
+ * @param stream       The stream to extract the frame from
+ * @param frame_index  The frame index to extract
+ * @return The extracted frame or NULL on failure
+ */
+AVFrame* MainWindow::get_frame(AVStream *stream, ssize_t frame_index)
 {
-    if (!video_stream || current_frame >= frame_count) {
-        return;
-    }
-
     // get decoder
-    const AVCodec *codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    const AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
     AVCodecContext *codec_context = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codec_context, video_stream->codecpar);
+    avcodec_parameters_to_context(codec_context, stream->codecpar);
     avcodec_open2(codec_context, codec, NULL);
+
+    codec_context->has_b_frames = reorder_length;
+    printf("has bframes: %d\n", codec_context->has_b_frames);
 
     // preparations
     AVPacket *packet = av_packet_alloc();
     AVFrame *frame = av_frame_alloc();
 
     // find keyframe
-    int current = find_iframe_before(frame_infos, current_frame);
+    int current = find_iframe_before(frame_infos, frame_index);
     printf("starting decoding at frame %d\n", current);
 
     // get frame
     int64_t offset = frame_infos[current].offset;
-    if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
+    if (avformat_seek_file(format_context, stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
         puts("Seek failed");
-        return;
+        return frame;
     }
-    while(current <= current_frame) {
+
+    // get some infos
+    int64_t target_pts = frame_infos[frame_index].pts;
+    int64_t target_dts = frame_infos[frame_index].dts;
+    int64_t start_pts  = frame_infos[current].pts;
+    puts("calling pframe after");
+    ssize_t pframe_after = find_pframe_after(frame_infos, frame_index, frame_count);
+    if (pframe_after == -1) {
+        pframe_after = find_pframe_before(frame_infos, frame_index);
+    }
+    int64_t pframe_dts = frame_infos[pframe_after].dts;
+    printf("start  pts: %ld\n", start_pts);
+    printf("target pts: %ld\n", target_pts);
+
+    // decode frame
+    while(frame->pts != target_pts) {
         if (av_read_frame(format_context, packet)) {
             puts("failed to read packet");
-
-            // flush decoder
-            avcodec_send_packet(codec_context, NULL);
-            while (current <= current_frame && avcodec_receive_frame(codec_context, frame) == 0) {
-                printf("got frame %d\n", current);
-                current++;
-            }
+            av_packet_unref(packet);
             break;
         }
-        if (packet->stream_index == video_stream->index) {
-            avcodec_send_packet(codec_context, packet);
-            while (current <= current_frame && avcodec_receive_frame(codec_context, frame) == 0) {
-                printf("got frame %d\n", current);
-                current++;
+        if (packet->stream_index == stream->index && packet->pts >= start_pts) {
+            printf("found packet with dts/pts %ld/%ld\n", packet->dts, packet->pts);
+            AVCodecParserContext* parser = av_stream_get_parser(video_stream);
+            if (parser && (packet->dts < pframe_dts || pframe_dts == target_dts) && parser->pict_type != AV_PICTURE_TYPE_I && parser->pict_type != AV_PICTURE_TYPE_P) {
+                printf("Skipped %c frame\n", av_get_picture_type_char((AVPictureType) parser->pict_type));
+            } else {
+                avcodec_send_packet(codec_context, packet);
+                while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
+                    printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
+                }
             }
         }
         av_packet_unref(packet);
     }
-    if (frame->data[0] == NULL) {
-        puts("data[0] is NULL");
+
+    // flush decoder
+    avcodec_send_packet(codec_context, NULL);
+    while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
+        printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
+    }
+
+    // cleanup
+    if (frame->pts != target_pts) {
         av_frame_free(&frame);
-        av_packet_free(&packet);
-        avcodec_free_context(&codec_context);
+    }
+    av_packet_free(&packet);
+    avcodec_free_context(&codec_context);
+    return frame;
+}
+
+/**
+ * Render the currently selected frame
+ */
+void MainWindow::render_frame()
+{
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
+    if (!video_stream || current_frame >= frame_count) {
+        return;
+    }
+
+    // get frame
+    AVFrame* frame = get_frame(video_stream, current_frame);
+    if (!frame) {
+        puts("frame not found");
         return;
     }
 
     // convert frame to RGB
     AVFrame *rgb = av_frame_alloc();
-    rgb->width = codec_context->width;
-    rgb->height = codec_context->height;
+    rgb->width = frame->width;
+    rgb->height = frame->height;
     rgb->format = AV_PIX_FMT_RGB24;
     av_image_alloc(rgb->data, rgb->linesize, rgb->width, rgb->height, (AVPixelFormat)rgb->format, 1);
     struct SwsContext *sws_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format, rgb->width, rgb->height, (AVPixelFormat)rgb->format, SWS_BILINEAR, NULL, NULL, NULL);
@@ -175,21 +230,27 @@ void MainWindow::render_frame()
     ui->video_frame->setPixmap(pm);
     ui->video_frame->setScaledContents(true);
     ui->video_frame->update();
-    printf("rendered frame %lu\n", current_frame);
+    // printf("rendered frame %lu\n", current_frame);
 
     // update current position
     char buffer[64] = "";
-    sprintf(buffer, "%lu [%c]", current_frame, av_get_picture_type_char(frame->pict_type));
+    sprintf(buffer, "%lu [%c/%c]", current_frame, av_get_picture_type_char(frame->pict_type), av_get_picture_type_char(frame_infos[current_frame].frame_type));
+    // printf("pts: [%ld/%ld]\n", frame->pts, frame_infos[current_frame].pts);
+    // printf("dts: [%ld/%ld]\n", frame->pkt_dts, frame_infos[current_frame].dts);
     ui->current_pos->setText(QString(buffer));
 
     // cleanup
     sws_freeContext(sws_context);
     av_frame_free(&frame);
     av_frame_free(&rgb);
-    av_packet_free(&packet);
-    avcodec_free_context(&codec_context);
+
+    gettimeofday(&end, NULL);
+    // printf("rendered frame in %lu us\n", end.tv_usec-start.tv_usec);
 }
 
+/**
+ * Read all packets from file and extract relevant infos to cache them
+ */
 void MainWindow::cache_frame_infos()
 {
     if (!frame_infos) {
@@ -206,6 +267,7 @@ void MainWindow::cache_frame_infos()
     AVPacket *packet = av_packet_alloc();
 
     // find all frames
+    reorder_length = 0;
     frame_count = 0;
     frame_info_t *current = frame_infos;
     long start_pts = LONG_MIN;
@@ -218,8 +280,12 @@ void MainWindow::cache_frame_infos()
                 start_pts = packet->pts;
             }
 
+            int bframes = 1;
             frame_info_t *destination = current;
             while (destination > frame_infos && (destination-1)->pts > packet->pts) {
+                if ((destination-1)->frame_type != AV_PICTURE_TYPE_I && (destination-1)->frame_type != AV_PICTURE_TYPE_P) {
+                    bframes++;
+                }
                 memcpy(destination, destination-1, sizeof(*destination));
                 destination--;
             }
@@ -228,19 +294,78 @@ void MainWindow::cache_frame_infos()
             destination->dts = packet->dts;
             destination->is_keyframe = packet->flags & AV_PKT_FLAG_KEY;
             destination->is_corrupt  = packet->flags & AV_PKT_FLAG_CORRUPT;
+
+            // get frame type
+            AVCodecParserContext *parser_context = av_stream_get_parser(video_stream);
+            if (parser_context) {
+                destination->frame_type = (AVPictureType) parser_context->pict_type;
+            } else {
+                printf("parser context was null\n");
+                AVFrame *frame = get_frame(video_stream, frame_count);
+                if (frame) {
+                    destination->frame_type = frame->pict_type;
+                } else {
+                    destination->frame_type = AV_PICTURE_TYPE_NONE;
+                }
+            }
+            if (destination->frame_type != AV_PICTURE_TYPE_I && destination->frame_type != AV_PICTURE_TYPE_P && bframes > reorder_length) {
+                reorder_length = bframes;
+            }
+
             current++;
             frame_count++;
-            av_packet_unref(packet);
+        } else if (packet->stream_index == audio_stream->index) {
+            // printf("found audio packet at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", packet->pos, packet->pts, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
         }
     }
 
     current = frame_infos;
+    max_bframes = 0;
+    int bframe_count = 0;
+    int64_t duration = frame_infos[1].pts - frame_infos[0].pts;
+    int64_t last_pts = current->pts;
     for (unsigned long i = 0; i < frame_count; i++, current++) {
-        printf("found frame %lu at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", i, current->offset, current->pts, current->dts, current->is_keyframe, current->is_corrupt);
+        printf("found frame %lu at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d; frame type: %c/%d\n", i, current->offset, current->pts, current->dts, current->is_keyframe, current->is_corrupt, av_get_picture_type_char(current->frame_type), current->frame_type);
+
+        if (last_pts + duration != current->pts) {
+            printf("found pts gap: last frame had pts %ld while current has pts %ld\n", last_pts, current->pts);
+            last_pts = current->pts;
+            bframe_count = 0;
+            continue;
+        }
+
+        if (current->frame_type == AV_PICTURE_TYPE_B) {
+            bframe_count++;
+        } else {
+            if (bframe_count > max_bframes) {
+                max_bframes = bframe_count;
+            }
+            bframe_count = 0;
+        }
+        last_pts = current->pts;
     }
 
     av_packet_free(&packet);
 }
+
+void MainWindow::on_set_cut_in_clicked()
+{
+    cut_in = current_frame;
+    ui->cut_in_pos->setText(ui->current_pos->text());
+}
+
+
+void MainWindow::on_set_cut_out_clicked()
+{
+    cut_out = current_frame;
+    ui->cut_out_pos->setText(ui->current_pos->text());
+}
+
+
+/**
+ * Find first I frame before or at specified frame
+ * @return index of found I frame
+ */
 ssize_t MainWindow::find_iframe_before(frame_info_t *frame_infos, ssize_t search)
 {
     ssize_t iframe_before = search;
@@ -250,7 +375,23 @@ ssize_t MainWindow::find_iframe_before(frame_info_t *frame_infos, ssize_t search
     return iframe_before;
 }
 
+/**
+ * Find first P or I frame before or at specified frame
+ * @return index of found P or I frame
+ */
+ssize_t MainWindow::find_pframe_before(frame_info_t *frame_infos, ssize_t search)
+{
+    ssize_t pframe_before = search;
+    while (pframe_before >= 0 && !frame_infos[pframe_before].is_keyframe && frame_infos[pframe_before].frame_type != AV_PICTURE_TYPE_P) {
+        pframe_before--;
+    }
+    return pframe_before;
+}
 
+/**
+ * Find first I frame after or at specified frame
+ * @return index of found I frame
+ */
 ssize_t MainWindow::find_iframe_after(frame_info_t *frame_infos, ssize_t search, ssize_t frame_count)
 {
     ssize_t iframe_after = search;
@@ -260,6 +401,211 @@ ssize_t MainWindow::find_iframe_after(frame_info_t *frame_infos, ssize_t search,
     return iframe_after >= frame_count ? -1 : iframe_after;
 }
 
-
-    av_packet_free(&packet);
+/**
+ * Find first P or I frame after or at specified frame
+ * @return index of found P or I frame
+ */
+ssize_t MainWindow::find_pframe_after(frame_info_t *frame_infos, ssize_t search, ssize_t frame_count)
+{
+    ssize_t pframe_after = search;
+    while (pframe_after < frame_count && !frame_infos[pframe_after].is_keyframe && frame_infos[pframe_after].frame_type != AV_PICTURE_TYPE_P) {
+        pframe_after++;
+    }
+    printf("pframe after: %zd\n", pframe_after);
+    return pframe_after >= frame_count ? -1 : pframe_after;
 }
+
+
+void MainWindow::transcode_video_frames(AVFormatContext *format_context, AVStream *video_stream, frame_info_t *frame_infos, ssize_t cut_in, ssize_t cut_out, AVFormatContext *output_context, AVStream *output_stream, int64_t start_dts) {
+    ssize_t iframe_before = find_iframe_before(frame_infos, cut_in);
+    ssize_t current = iframe_before;
+
+    // get decoder
+    const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    AVCodecContext *decode_context = avcodec_alloc_context3(decoder);
+    avcodec_parameters_to_context(decode_context, video_stream->codecpar);
+    avcodec_open2(decode_context, decoder, NULL);
+    decode_context->has_b_frames = reorder_length;
+
+    // get encoder
+    const AVCodec *encoder = avcodec_find_encoder(output_stream->codecpar->codec_id);
+    AVCodecContext *encode_context = avcodec_alloc_context3(encoder);
+    avcodec_parameters_to_context(encode_context, output_stream->codecpar);
+    encode_context->time_base.den = video_stream->avg_frame_rate.num;
+    encode_context->time_base.num = video_stream->avg_frame_rate.den;
+    encode_context->max_b_frames = max_bframes;
+    encode_context->gop_size = cut_out - cut_in + 2;
+
+    // calculate bitrate
+    if (encode_context->bit_rate == 0) {
+        puts("calculating bitrate");
+        ssize_t offset_diff = frame_infos[frame_count-1].offset - frame_infos[0].offset;
+        encode_context->bit_rate = offset_diff * 8 * video_stream->avg_frame_rate.num / video_stream->avg_frame_rate.den / frame_count;
+    }
+    printf("encoder: bitrate: %ld; global_quality: %d\n", encode_context->bit_rate, encode_context->global_quality);
+    avcodec_open2(encode_context, encoder, NULL);
+
+    // preparations
+    AVPacket *packet = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+
+    // dts correction
+    int64_t dts = start_dts;
+    int64_t duration = frame_infos[cut_in+1].pts - frame_infos[cut_in].pts;
+
+    // get frames
+    int64_t offset = frame_infos[current].offset;
+    if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
+        puts("Seek failed");
+        return;
+    }
+    while (current <= cut_out) {
+        if (av_read_frame(format_context, packet)) {
+            puts("failed to read packet");
+            break;
+        }
+        if (packet->stream_index == video_stream->index) {
+            avcodec_send_packet(decode_context, packet);
+            while (avcodec_receive_frame(decode_context, frame) == 0) {
+                // skip frames just needed for decoding
+                if (current < cut_in) {
+                    printf("skipped frame %zd with dts %ld and pts %ld\n", current, frame->pkt_dts, frame->pts);
+                    current++;
+                    continue;
+                }
+
+                // send frame to encoder
+                printf("got frame %zd with dts %ld and pts %ld\n", current, frame->pkt_dts, frame->pts);
+                frame->pict_type = AV_PICTURE_TYPE_NONE;
+                avcodec_send_frame(encode_context, frame);
+
+                // write encoded packets
+                while (avcodec_receive_packet(encode_context, packet) == 0) {
+                    packet->dts = dts;
+                    dts += duration;
+                    printf("Writing transcoded packet with dts %ld and pts %ld\n", packet->dts, packet->pts);
+                    packet->stream_index = output_stream->index;
+                    av_interleaved_write_frame(output_context, packet);
+                }
+
+                current++;
+            }
+        }
+        av_packet_unref(packet);
+    }
+
+    // write remaining encoded packets
+    avcodec_send_frame(encode_context, NULL);
+    while (avcodec_receive_packet(encode_context, packet) == 0) {
+        packet->dts = dts;
+        dts += duration;
+        printf("Writing transcoded packet with dts %ld and pts %ld\n", packet->dts, packet->pts);
+        packet->stream_index = output_stream->index;
+        av_interleaved_write_frame(output_context, packet);
+    }
+
+    // cleanup
+    av_frame_free(&frame);
+    av_packet_free(&packet);
+    avcodec_free_context(&decode_context);
+    avcodec_free_context(&encode_context);
+}
+
+
+void MainWindow::on_actionCut_Video_triggered()
+{
+    if (!video_stream) {
+        puts("Video stream missing");
+        return;
+    } else if (cut_in < 0 || cut_out < 0) {
+        puts("CutIn or CutOut missing");
+        return;
+    } else if (cut_in > cut_out) {
+        puts("CutIn needs to be before CutOut");
+        return;
+    }
+
+    // select file
+    std::string filename = QFileDialog::getSaveFileName(this, "Open Video").toStdString();
+    if (filename.empty()) {
+        return;
+    }
+
+    // open output file
+    AVFormatContext *output_context;
+    avformat_alloc_output_context2(&output_context, NULL, NULL, filename.c_str());
+
+    // add streams
+    AVStream *output_stream = avformat_new_stream(output_context, NULL);
+    avcodec_parameters_copy(output_stream->codecpar, video_stream->codecpar);
+    output_stream->avg_frame_rate = video_stream->avg_frame_rate;
+
+    // write header
+    avio_open(&output_context->pb, filename.c_str(), AVIO_FLAG_WRITE);
+    if (avformat_write_header(output_context, NULL) < 0) {
+        puts("Failed writing header");
+    }
+
+    ssize_t remux_start = find_iframe_after(frame_infos, cut_in, frame_count);
+    ssize_t remux_end = find_pframe_before(frame_infos, cut_out);
+    ssize_t remux_save_end = find_iframe_after(frame_infos, remux_end+1, frame_count);
+    printf("computed values: %ld/%ld/%ld\n", remux_start, remux_end, remux_save_end);
+
+    if (cut_in < remux_start) {
+        // transcode frames before first i-frame
+        int64_t start_dts = frame_infos[remux_start].dts - (frame_infos[remux_start].pts - frame_infos[cut_in].pts);
+        transcode_video_frames(format_context, video_stream, frame_infos, cut_in, remux_start-1, output_context, output_stream, start_dts);
+    }
+
+    // remux frames between first i-frame and last p-frame
+    AVPacket *packet = av_packet_alloc();
+    long start_pts = frame_infos[remux_start].pts;
+    long end_pts = frame_infos[remux_end].pts;
+    ssize_t current = remux_start;
+    int64_t offset = frame_infos[current].offset;
+    if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
+        puts("Seek failed");
+        return;
+    }
+    int64_t packet_length_dts = frame_infos[cut_in+1].pts - frame_infos[cut_in].pts;
+    int64_t last_dts = frame_infos[remux_start].dts - packet_length_dts;
+    while (current < remux_save_end) {
+        if (av_read_frame(format_context, packet)) {
+            puts("failed to read packet");
+            break;
+        }
+        if (packet->stream_index == video_stream->index) {
+            if (packet->pts >= start_pts && packet->pts <= end_pts) {
+                printf("Writing packet with dts %ld and pts %ld\n", packet->dts, packet->pts);
+                last_dts = packet->dts;
+                packet->stream_index = output_stream->index;
+                av_interleaved_write_frame(output_context, packet);
+            }
+            current++;
+        }
+        av_packet_unref(packet);
+    }
+    av_packet_free(&packet);
+    printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
+    printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_stream->avg_frame_rate.num, output_stream->avg_frame_rate.den, output_stream->time_base.num, output_stream->time_base.den);
+
+    if (remux_end < cut_out) {
+        // transcode frames after last p-frame
+        transcode_video_frames(format_context, video_stream, frame_infos, remux_end+1, cut_out, output_context, output_stream, last_dts + packet_length_dts);
+    }
+    puts("transcoded");
+
+    // write trailer
+    av_write_trailer(output_context);
+
+    // cleanup
+    avio_closep(&output_context->pb);
+    avformat_free_context(output_context);
+}
+
+
+void MainWindow::on_actionExit_triggered()
+{
+    exit(EXIT_SUCCESS);
+}
+
