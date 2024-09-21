@@ -21,6 +21,12 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_actionOpen_Video_triggered()
 {
+    // select file
+    std::string filename = QFileDialog::getOpenFileName(this, "Open Video").toStdString();
+    if (filename.empty()) {
+        return;
+    }
+
     // cleanup
     if (format_context) {
         avformat_free_context(format_context);
@@ -28,12 +34,6 @@ void MainWindow::on_actionOpen_Video_triggered()
 
     // preparations
     format_context = avformat_alloc_context();
-
-    // select file
-    std::string filename = QFileDialog::getOpenFileName(this, "Open Video").toStdString();
-    if (filename.empty()) {
-        return;
-    }
 
     // open file
     avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
