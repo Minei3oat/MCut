@@ -265,7 +265,7 @@ void MainWindow::render_frame()
     av_frame_free(&rgb);
 
     gettimeofday(&end, NULL);
-    // printf("rendered frame in %lu us\n", end.tv_usec-start.tv_usec);
+    printf("rendered frame in %lu us\n", end.tv_usec-start.tv_usec);
 }
 
 /**
@@ -293,6 +293,7 @@ void MainWindow::cache_frame_infos()
     long start_pts = LONG_MIN;
     while (av_read_frame(format_context, packet) == 0) {
         if (packet->stream_index == video_stream->index) {
+            printf("found video packet with duration %ld at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
             // skip to first key frame and ignore frames with a pts before first keyframe
             if ((frame_count == 0 && !(packet->flags & AV_PKT_FLAG_KEY)) || packet->pts < start_pts) {
                 continue;
@@ -350,7 +351,8 @@ void MainWindow::cache_frame_infos()
     int64_t duration = frame_infos[1].pts - frame_infos[0].pts;
     int64_t last_pts = current->pts;
     for (unsigned long i = 0; i < frame_count; i++, current++) {
-        printf("found frame %lu at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d; frame type: %c/%d\n", i, current->offset, current->pts, current->dts, current->is_keyframe, current->is_corrupt, av_get_picture_type_char(current->frame_type), current->frame_type);
+        float timestamp = (current->pts - start_pts) * video_stream->time_base.num * 1.0 / video_stream->time_base.den;
+        printf("found frame %lu at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d; frame type: %c/%d\n", i, current->offset, current->pts, timestamp, current->dts, current->is_keyframe, current->is_corrupt, av_get_picture_type_char(current->frame_type), current->frame_type);
 
         if (last_pts + duration != current->pts) {
             printf("found pts gap: last frame had pts %ld while current has pts %ld\n", last_pts, current->pts);
