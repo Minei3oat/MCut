@@ -220,7 +220,7 @@ void MainWindow::render_frame()
     rgb->width = frame->width;
     rgb->height = frame->height;
     rgb->format = AV_PIX_FMT_RGB24;
-    av_image_alloc(rgb->data, rgb->linesize, rgb->width, rgb->height, (AVPixelFormat)rgb->format, 1);
+    av_frame_get_buffer(rgb, 4);
     struct SwsContext *sws_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format, rgb->width, rgb->height, (AVPixelFormat)rgb->format, SWS_BILINEAR, NULL, NULL, NULL);
     sws_scale_frame(sws_context, rgb, frame);
 
@@ -317,6 +317,7 @@ void MainWindow::cache_frame_infos()
         } else if (packet->stream_index == audio_stream->index) {
             // printf("found audio packet at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", packet->pos, packet->pts, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
         }
+        av_packet_unref(packet);
     }
 
     current = frame_infos;
