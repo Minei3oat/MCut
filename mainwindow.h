@@ -63,6 +63,7 @@ private:
     AVFormatContext *format_context = NULL;
     AVStream *video_stream = NULL;
     AVStream *audio_stream = NULL;
+    AVStream *subtitle_stream = NULL;
     long current_frame = -1;
     unsigned long frame_count = 0;
     int reorder_length = 0;

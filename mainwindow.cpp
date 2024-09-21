@@ -62,6 +62,11 @@ void MainWindow::on_actionOpen_Video_triggered()
             if (!audio_stream) {
                 audio_stream = stream;
             }
+        } else if (local_codec_parameters->codec_type == AVMEDIA_TYPE_SUBTITLE) {
+            printf("Subtitle Codec: %s\n", avcodec_get_name(local_codec_parameters->codec_id));
+            if (local_codec_parameters->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
+                subtitle_stream = stream;
+            }
         }
         // general
         printf("\tCodec %s ID %d bit_rate %ld\n", local_codec->long_name, local_codec->id, local_codec_parameters->bit_rate);
@@ -314,8 +319,12 @@ void MainWindow::cache_frame_infos()
 
             current++;
             frame_count++;
-        } else if (packet->stream_index == audio_stream->index) {
-            // printf("found audio packet at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", packet->pos, packet->pts, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+        } else if (audio_stream && packet->stream_index == audio_stream->index) {
+            float timestamp = (packet->pts - start_pts) * audio_stream->time_base.num * 1.0 / audio_stream->time_base.den;
+            printf("found audio packet with duration %ld at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+        } else if (subtitle_stream && packet->stream_index == subtitle_stream->index) {
+            float timestamp = (packet->pts - start_pts) * subtitle_stream->time_base.num * 1.0 / subtitle_stream->time_base.den;
+            printf("found subtitle packet with duration %ld at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
         }
         av_packet_unref(packet);
     }
@@ -537,9 +546,20 @@ void MainWindow::on_actionCut_Video_triggered()
     avformat_alloc_output_context2(&output_context, NULL, NULL, filename.c_str());
 
     // add streams
-    AVStream *output_stream = avformat_new_stream(output_context, NULL);
-    avcodec_parameters_copy(output_stream->codecpar, video_stream->codecpar);
-    output_stream->avg_frame_rate = video_stream->avg_frame_rate;
+    AVStream *output_video_stream = avformat_new_stream(output_context, NULL);
+    avcodec_parameters_copy(output_video_stream->codecpar, video_stream->codecpar);
+    output_video_stream->avg_frame_rate = video_stream->avg_frame_rate;
+    AVStream *output_audio_stream = avformat_new_stream(output_context, NULL);
+    avcodec_parameters_copy(output_audio_stream->codecpar, audio_stream->codecpar);
+    AVStream *output_subtitle_stream = avformat_new_stream(output_context, NULL);
+    avcodec_parameters_copy(output_subtitle_stream->codecpar, subtitle_stream->codecpar);
+
+    // create index translation table
+    int *index = (int *) malloc(sizeof(int) * format_context->nb_streams);
+    memset(index, 0xff, sizeof(int) * format_context->nb_streams);
+    index[video_stream->index] = output_video_stream->index;
+    index[audio_stream->index] = output_audio_stream->index;
+    index[subtitle_stream->index] = output_subtitle_stream->index;
 
     // write header
     avio_open(&output_context->pb, filename.c_str(), AVIO_FLAG_WRITE);
@@ -555,44 +575,46 @@ void MainWindow::on_actionCut_Video_triggered()
     if (cut_in < remux_start) {
         // transcode frames before first i-frame
         int64_t start_dts = frame_infos[remux_start].dts - (frame_infos[remux_start].pts - frame_infos[cut_in].pts);
-        transcode_video_frames(format_context, video_stream, frame_infos, cut_in, remux_start-1, output_context, output_stream, start_dts);
+        transcode_video_frames(format_context, video_stream, frame_infos, cut_in, remux_start-1, output_context, output_video_stream, start_dts);
     }
 
     // remux frames between first i-frame and last p-frame
     AVPacket *packet = av_packet_alloc();
+    int64_t packet_length_dts = frame_infos[cut_in+1].pts - frame_infos[cut_in].pts;
     long start_pts = frame_infos[remux_start].pts;
-    long end_pts = frame_infos[remux_end].pts;
+    long end_pts = frame_infos[remux_end].pts + packet_length_dts;
     ssize_t current = remux_start;
     int64_t offset = frame_infos[current].offset;
     if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
         puts("Seek failed");
         return;
     }
-    int64_t packet_length_dts = frame_infos[cut_in+1].pts - frame_infos[cut_in].pts;
     int64_t last_dts = frame_infos[remux_start].dts - packet_length_dts;
-    while (current < remux_save_end) {
+    while (current < remux_save_end || last_dts < end_pts + packet_length_dts) {
         if (av_read_frame(format_context, packet)) {
             puts("failed to read packet");
             break;
         }
-        if (packet->stream_index == video_stream->index) {
-            if (packet->pts >= start_pts && packet->pts <= end_pts) {
+        if (packet->pts >= start_pts && packet->pts + packet->duration <= end_pts + packet_length_dts) {
+            if (index[packet->stream_index] != -1) {
                 printf("Writing packet with dts %ld and pts %ld\n", packet->dts, packet->pts);
                 last_dts = packet->dts;
-                packet->stream_index = output_stream->index;
+                packet->stream_index = index[packet->stream_index];
                 av_interleaved_write_frame(output_context, packet);
             }
+        }
+        if (packet->stream_index == video_stream->index) {
             current++;
         }
         av_packet_unref(packet);
     }
     av_packet_free(&packet);
     printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
-    printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_stream->avg_frame_rate.num, output_stream->avg_frame_rate.den, output_stream->time_base.num, output_stream->time_base.den);
+    printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
 
     if (remux_end < cut_out) {
         // transcode frames after last p-frame
-        transcode_video_frames(format_context, video_stream, frame_infos, remux_end+1, cut_out, output_context, output_stream, last_dts + packet_length_dts);
+        transcode_video_frames(format_context, video_stream, frame_infos, remux_end+1, cut_out, output_context, output_video_stream, last_dts + packet_length_dts);
     }
     puts("transcoded");
 
