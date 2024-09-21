@@ -75,6 +75,12 @@ void MainWindow::on_actionOpen_Video_triggered()
 
     cache_frame_infos();
 
+    // ui->position_slider->setSliderDown(false);
+    puts("set max");
+    ui->position_slider->setMaximum(frame_count-1);
+    puts("set max");
+    ui->position_slider->setSliderPosition(0);
+
     current_frame = 0;
     render_frame();
 
@@ -641,3 +647,14 @@ void MainWindow::on_actionExit_triggered()
     exit(EXIT_SUCCESS);
 }
 
+
+void MainWindow::on_position_slider_sliderMoved(int position)
+{
+    ssize_t target = find_iframe_after(frame_infos, position, frame_count);
+    if (target == -1) {
+        target = find_iframe_before(frame_infos, position);
+    }
+    printf("Sliding to frame %zd\n", target);
+    current_frame = target;
+    render_frame();
+}

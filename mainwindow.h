@@ -47,6 +47,8 @@ private slots:
     void on_prev_frame_2_clicked();
     void on_next_frame_2_clicked();
 
+    void on_position_slider_sliderMoved(int position);
+
 private:
     void render_frame();
     AVFrame* get_frame(AVStream *stream, ssize_t frame_index);

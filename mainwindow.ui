@@ -56,7 +56,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>30</y>
+      <y>20</y>
       <width>720</width>
       <height>405</height>
      </rect>
@@ -68,9 +68,9 @@
    <widget class="QLabel" name="current_pos">
     <property name="geometry">
      <rect>
-      <x>250</x>
+      <x>30</x>
       <y>450</y>
-      <width>160</width>
+      <width>351</width>
       <height>25</height>
      </rect>
     </property>
@@ -168,6 +168,22 @@
      <number>10</number>
     </property>
    </widget>
+   <widget class="QSlider" name="position_slider">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>420</y>
+      <width>721</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="maximum">
+     <number>0</number>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -175,7 +191,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>22</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -199,32 +215,35 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen_Video">
    <property name="icon">
-    <iconset theme="document-open"/>
+    <iconset theme="document-open">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>Open Video</string>
    </property>
    <property name="shortcut">
-    <enum>QKeySequence::Open</enum>
+    <number>-1</number>
    </property>
   </action>
   <action name="actionSettings">
    <property name="icon">
-    <iconset theme="configure"/>
+    <iconset theme="configure">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>Settings</string>
    </property>
+   <property name="shortcut">
+    <number>-1</number>
+   </property>
    <property name="menuRole">
     <enum>QAction::PreferencesRole</enum>
-   </property>
-   <property name="shortcut">
-    <enum>QKeySequence::Preferences</enum>
    </property>
   </action>
   <action name="actionAbout">
    <property name="icon">
-    <iconset theme="help-about"/>
+    <iconset theme="help-about">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>About</string>
@@ -235,21 +254,23 @@
   </action>
   <action name="actionExit">
    <property name="icon">
-    <iconset theme="application-exit"/>
+    <iconset theme="application-exit">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>Quit</string>
    </property>
+   <property name="shortcut">
+    <number>-1</number>
+   </property>
    <property name="menuRole">
     <enum>QAction::QuitRole</enum>
-   </property>
-   <property name="shortcut">
-    <enum>QKeySequence::Quit</enum>
    </property>
   </action>
   <action name="actionCut_Video">
    <property name="icon">
-    <iconset theme="edit-cut"/>
+    <iconset theme="edit-cut">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>Cut Video</string>
