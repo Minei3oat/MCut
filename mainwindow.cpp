@@ -133,23 +133,9 @@ AVFrame* MainWindow::get_frame(AVStream *stream, ssize_t frame_index)
     avcodec_parameters_to_context(codec_context, stream->codecpar);
     avcodec_open2(codec_context, codec, NULL);
 
-    codec_context->has_b_frames = reorder_length;
-    printf("has bframes: %d\n", codec_context->has_b_frames);
-
-    // preparations
-    AVPacket *packet = av_packet_alloc();
-    AVFrame *frame = av_frame_alloc();
-
     // find keyframe
     int current = find_iframe_before(frame_infos, frame_index);
     printf("starting decoding at frame %d\n", current);
-
-    // get frame
-    int64_t offset = frame_infos[current].offset;
-    if (avformat_seek_file(format_context, stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-        puts("Seek failed");
-        return frame;
-    }
 
     // get some infos
     int64_t target_pts = frame_infos[frame_index].pts;
@@ -164,7 +150,30 @@ AVFrame* MainWindow::get_frame(AVStream *stream, ssize_t frame_index)
     printf("start  pts: %ld\n", start_pts);
     printf("target pts: %ld\n", target_pts);
 
+    // calculate reorder buffer length
+    // this is needed, frames that cause an automatic resizing are lost (at least for h264)
+    int reorder_length = 0;
+    for (int i = frame_index; i < frame_count && frame_infos[i].frame_type != AV_PICTURE_TYPE_I && frame_infos[i].frame_type != AV_PICTURE_TYPE_P; i++) {
+        if (frame_infos[i].dts <= target_dts) {
+            reorder_length++;
+        }
+    }
+    codec_context->has_b_frames = reorder_length;
+    printf("has bframes: %d\n", codec_context->has_b_frames);
+
+    // preparations
+    AVPacket *packet = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+
+    // get frame
+    int64_t offset = frame_infos[current].offset;
+    if (avformat_seek_file(format_context, stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
+        puts("Seek failed");
+        return frame;
+    }
+
     // decode frame
+    frame->pts = target_pts-1;
     while(frame->pts != target_pts) {
         if (av_read_frame(format_context, packet)) {
             puts("failed to read packet");
