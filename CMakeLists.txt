@@ -22,6 +22,7 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
 
 set(PROJECT_SOURCES
     main.cpp
+    mediafile.cpp
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
