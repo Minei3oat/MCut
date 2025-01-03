@@ -283,7 +283,7 @@ void MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in, s
     encode_context->time_base.den = video_stream->avg_frame_rate.num;
     encode_context->time_base.num = video_stream->avg_frame_rate.den;
     encode_context->max_b_frames = media_file->get_max_bframes();
-    encode_context->gop_size = cut_out - cut_in + 2;
+    encode_context->gop_size = media_file->get_gop_size();
 
     // calculate bitrate
     if (encode_context->bit_rate == 0) {

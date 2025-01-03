@@ -194,7 +194,9 @@ void MediaFile::build_cache()
 
     current = stream_infos[video_stream->index].infos;
     max_bframes = 0;
+    gop_size = 0;
     int bframe_count = 0;
+    int gop_count = 0;
     int64_t next_pts = current->pts;
     for (unsigned long i = 0; i < frame_count; next_pts = current->pts + current->duration, i++, current++) {
         // float timestamp = (current->pts - start_pts) * video_stream->time_base.num * 1.0 / video_stream->time_base.den;
@@ -203,9 +205,11 @@ void MediaFile::build_cache()
         if (next_pts != current->pts) {
             printf("found pts gap: expected pts %ld while current has pts %ld\n", next_pts, current->pts);
             bframe_count = 0;
+            gop_count = 0;
             continue;
         }
 
+        // track bframes
         if (current->frame_type == AV_PICTURE_TYPE_B) {
             bframe_count++;
         } else {
@@ -213,6 +217,15 @@ void MediaFile::build_cache()
                 max_bframes = bframe_count;
             }
             bframe_count = 0;
+        }
+
+        // track gop size
+        gop_count++;
+        if (current->frame_type == AV_PICTURE_TYPE_I) {
+            if (gop_count > gop_size) {
+                gop_size = gop_count;
+            }
+            gop_count = 0;
         }
     }
 
