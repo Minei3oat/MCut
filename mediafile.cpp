@@ -265,15 +265,9 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
-    // calculate reorder buffer length
+    // set reorder buffer length
     // this is needed, frames that cause an automatic resizing are lost (at least for h264)
-    int reorder_length = 0;
-    for (int i = frame_index; i < stream_info->num_infos && stream_info->infos[i].frame_type != AV_PICTURE_TYPE_I && stream_info->infos[i].frame_type != AV_PICTURE_TYPE_P; i++) {
-        if (stream_info->infos[i].dts <= target_dts) {
-            reorder_length++;
-        }
-    }
-    codec_context->has_b_frames = reorder_length;
+    codec_context->has_b_frames = max_bframes;
     // printf("has bframes: %d\n", codec_context->has_b_frames);
 
     // preparations
