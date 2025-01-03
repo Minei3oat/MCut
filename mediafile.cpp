@@ -1,10 +1,18 @@
 #include "mediafile.h"
 
+#include <algorithm>
+
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 MediaFile::MediaFile(std::string filename) : filename(filename)
 {
+    // get filesize
+    struct stat info;
+    stat(filename.c_str(), &info);
+    filesize = info.st_size;
+
     // preparations
     format_context = avformat_alloc_context();
 
@@ -26,35 +34,37 @@ MediaFile::MediaFile(std::string filename) : filename(filename)
             continue;
         }
 
-        // specific for video and audio
-        if (local_codec_parameters->codec_type == AVMEDIA_TYPE_VIDEO) {
-            printf("Video Codec: resolution %d x %d\n", local_codec_parameters->width, local_codec_parameters->height);
-            video_stream = stream;
-        } else if (local_codec_parameters->codec_type == AVMEDIA_TYPE_AUDIO) {
-            printf("Audio Codec: %d channels, sample rate %d\n", local_codec_parameters->ch_layout.nb_channels, local_codec_parameters->sample_rate);
-            if (!audio_stream) {
-                audio_stream = stream;
-            } else if (!audio_stream2) {
-                audio_stream2 = stream;
-            }
-        } else if (local_codec_parameters->codec_type == AVMEDIA_TYPE_SUBTITLE) {
-            printf("Subtitle Codec: %s\n", avcodec_get_name(local_codec_parameters->codec_id));
-            if (local_codec_parameters->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
-                subtitle_stream = stream;
-            }
+        // print stream info
+        switch (local_codec_parameters->codec_type) {
+            case AVMEDIA_TYPE_VIDEO:
+                printf("Video Codec: resolution %d x %d\n", local_codec_parameters->width, local_codec_parameters->height);
+                video_stream = stream;
+                break;
+            case AVMEDIA_TYPE_AUDIO:
+                printf("Audio Codec: %d channels, sample rate %d\n", local_codec_parameters->ch_layout.nb_channels, local_codec_parameters->sample_rate);
+                break;
+            case AVMEDIA_TYPE_SUBTITLE:
+                printf("Subtitle Codec: %s\n", avcodec_get_name(local_codec_parameters->codec_id));
+                break;
+            default:
+                printf("Unknown Codec: %s\n", avcodec_get_name(local_codec_parameters->codec_id));
+                break;
         }
         // general
         printf("\tCodec %s ID %d bit_rate %ld\n", local_codec->long_name, local_codec->id, local_codec_parameters->bit_rate);
         printf("\tDuration %ld us; timebase: %d/%d\n", stream->duration,  stream->time_base.num, stream->time_base.den);
     }
 
-    // fill cache
-    cache_frame_infos();
+    // build cache
+    build_cache();
 }
 
 MediaFile::~MediaFile()
 {
-    munmap(frame_infos, sizeof(frame_info_t) * frame_count);
+    for (int i = 0; i < format_context->nb_streams; i++) {
+        munmap(stream_infos[i].infos, (long)stream_infos[i].infos_end - (long)stream_infos[i].infos);
+    }
+    free(stream_infos);
     avformat_free_context(format_context);
 }
 
@@ -62,16 +72,15 @@ MediaFile::~MediaFile()
 /**
  * Read all packets from file and extract relevant infos to cache them
  */
-void MediaFile::cache_frame_infos()
+void MediaFile::build_cache()
 {
-    // allocate cache
-    ssize_t nb_frames = video_stream->nb_frames;
-    printf("nb_frames: %zd, duration: %ld, time_base.num: %d, time_base.den: %d, avg_frame_rate.num: %d, avg_frame_rate.den: %d\n", nb_frames, video_stream->duration, video_stream->time_base.num, video_stream->time_base.den, video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den);
-    if (nb_frames == 0) {
-        nb_frames = video_stream->duration * video_stream->avg_frame_rate.num / video_stream->avg_frame_rate.den * video_stream->time_base.num / video_stream->time_base.den;
+    // allocate minimalistic cache for all streams
+    stream_infos = (stream_info_t*) malloc(sizeof(stream_info_t) * format_context->nb_streams);
+    for (int i = 0; i < format_context->nb_streams; i++) {
+        stream_infos[i].infos = (packet_info_t*) mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        stream_infos[i].num_infos = 0;
+        stream_infos[i].infos_end = (packet_info_t*) ((unsigned long) stream_infos[i].infos + 4096);
     }
-    printf("allocating space for %zd frames\n", nb_frames);
-    frame_infos = (frame_info_t *) mmap(NULL, sizeof(frame_info_t)* nb_frames, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 
     // get decoder
     const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
@@ -84,15 +93,49 @@ void MediaFile::cache_frame_infos()
 
     // find all frames
     reorder_length = 0;
-    frame_count = 0;
-    frame_info_t *current = frame_infos;
+    int frame_count = 0;
+    packet_info_t *current = stream_infos[video_stream->index].infos;
     long start_pts = LONG_MIN;
     while (av_read_frame(format_context, packet) == 0) {
         if (packet->flags & AV_PKT_FLAG_CORRUPT && frame_count) {
             printf("found corrupt packet in stream %d at pts %ld\n", packet->stream_index, packet->pts);
         }
+
+        // logging
+        AVStream* stream = format_context->streams[packet->stream_index];
+        float timestamp = (packet->pts - start_pts) * stream->time_base.num * 1.0 / stream->time_base.den;
+        std::string stream_type = "unknown";
+        switch (stream->codecpar->codec_type) {
+            case AVMEDIA_TYPE_VIDEO:
+                stream_type = "video";
+                break;
+            case AVMEDIA_TYPE_AUDIO:
+                stream_type = "audio";
+                break;
+            case AVMEDIA_TYPE_SUBTITLE:
+                stream_type = "subtitle";
+                break;
+            default:
+                break;
+        }
+        // printf("found %s packet of stream %d with duration %ld at %10lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", stream_type.c_str(), packet->stream_index, packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+
+        // extend info area if needed
+        stream_info_t* stream_info = stream_infos + packet->stream_index;
+        if (stream_info->infos_end < stream_info->infos + stream_info->num_infos + 2) {
+            long old_size = (unsigned long) stream_info->infos_end - (unsigned long) stream_info->infos;
+            // printf("remap area for stream %d (old %#lx): %p\n", packet->stream_index, old_size, stream_info->infos);
+            stream_info->infos = (packet_info_t*) mremap(stream_info->infos, old_size, old_size + 4096, MREMAP_MAYMOVE);
+            // printf("remap area for stream %d (new %#lx): %p\n", packet->stream_index, old_size + 4096, stream_info->infos);
+            if (stream_info->infos == MAP_FAILED) {
+                perror("mremap failed");
+                exit(EXIT_FAILURE);
+            }
+            stream_info->infos_end = (packet_info_t*) ((unsigned long) stream_info->infos + old_size + 4096);
+        }
+
+        packet_info_t* destination = stream_info->infos + stream_info->num_infos;
         if (packet->stream_index == video_stream->index) {
-            // printf("found video packet with duration %ld at %lu with pts %ld and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
             // skip to first key frame and ignore frames with a pts before first keyframe
             if ((frame_count == 0 && !(packet->flags & AV_PKT_FLAG_KEY)) || packet->pts < start_pts) {
                 continue;
@@ -101,21 +144,13 @@ void MediaFile::cache_frame_infos()
             }
 
             int bframes = 1;
-            frame_info_t *destination = current;
-            while (destination > frame_infos && (destination-1)->pts > packet->pts) {
+            while (destination > stream_info->infos && (destination-1)->pts > packet->pts) {
                 if ((destination-1)->frame_type != AV_PICTURE_TYPE_I && (destination-1)->frame_type != AV_PICTURE_TYPE_P) {
                     bframes++;
                 }
                 memcpy(destination, destination-1, sizeof(*destination));
                 destination--;
             }
-            destination->offset = packet->pos;
-            destination->pts = packet->pts;
-            destination->dts = packet->dts;
-            destination->is_keyframe = packet->flags & AV_PKT_FLAG_KEY;
-            destination->is_corrupt  = packet->flags & AV_PKT_FLAG_CORRUPT;
-
-            current++;
             frame_count++;
 
             // get frame type
@@ -124,41 +159,49 @@ void MediaFile::cache_frame_infos()
                 destination->frame_type = (AVPictureType) parser_context->pict_type;
             } else {
                 printf("parser context was null\n");
-                AVFrame *frame = get_frame(frame_count-1);
-                if (frame) {
-                    destination->frame_type = frame->pict_type;
-                } else {
+                // this can produce an endless loop, duplicate frames, ... as it changes the file pointer
+                //AVFrame *frame = get_frame(frame_count-1);
+                //if (frame) {
+                //    destination->frame_type = frame->pict_type;
+                //} else {
                     destination->frame_type = AV_PICTURE_TYPE_NONE;
-                }
+                //}
             }
             if (destination->frame_type != AV_PICTURE_TYPE_I && destination->frame_type != AV_PICTURE_TYPE_P && bframes > reorder_length) {
                 reorder_length = bframes;
             }
-        } else if (audio_stream && packet->stream_index == audio_stream->index) {
-            float timestamp = (packet->pts - start_pts) * audio_stream->time_base.num * 1.0 / audio_stream->time_base.den;
-            // printf("found audio packet with duration %ld at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
-        } else if (audio_stream2 && packet->stream_index == audio_stream2->index) {
-            float timestamp = (packet->pts - start_pts) * audio_stream2->time_base.num * 1.0 / audio_stream2->time_base.den;
-            // printf("found audio2 packet with duration %ld at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
-        } else if (subtitle_stream && packet->stream_index == subtitle_stream->index) {
-            float timestamp = (packet->pts - start_pts) * subtitle_stream->time_base.num * 1.0 / subtitle_stream->time_base.den;
-            // printf("found subtitle packet with duration %ld at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+            destination->offset = packet->pos;
+        } else {
+            int64_t pos = packet->pos;
+            for (packet_info_t* current = destination - 1; pos == -1 && current >= stream_info->infos; current--) {
+                pos = current->offset;
+            }
+            if (pos == -1) {
+                pos = 0;
+            }
+            destination->offset = pos;
+            destination->frame_type = AV_PICTURE_TYPE_NONE;
         }
+        destination->pts = packet->pts;
+        destination->dts = packet->dts;
+        destination->duration = packet->duration;
+        destination->is_keyframe = packet->flags & AV_PKT_FLAG_KEY;
+        destination->is_corrupt  = packet->flags & AV_PKT_FLAG_CORRUPT;
+        stream_info->num_infos++;
+
         av_packet_unref(packet);
     }
 
-    current = frame_infos;
+    current = stream_infos[video_stream->index].infos;
     max_bframes = 0;
     int bframe_count = 0;
-    int64_t duration = frame_infos[1].pts - frame_infos[0].pts;
-    int64_t last_pts = current->pts;
-    for (unsigned long i = 0; i < frame_count; i++, current++) {
-        float timestamp = (current->pts - start_pts) * video_stream->time_base.num * 1.0 / video_stream->time_base.den;
+    int64_t next_pts = current->pts;
+    for (unsigned long i = 0; i < frame_count; next_pts = current->pts + current->duration, i++, current++) {
+        // float timestamp = (current->pts - start_pts) * video_stream->time_base.num * 1.0 / video_stream->time_base.den;
         // printf("found frame %lu at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d; frame type: %c/%d\n", i, current->offset, current->pts, timestamp, current->dts, current->is_keyframe, current->is_corrupt, av_get_picture_type_char(current->frame_type), current->frame_type);
 
-        if (last_pts + duration != current->pts) {
-            printf("found pts gap: last frame had pts %ld while current has pts %ld\n", last_pts, current->pts);
-            last_pts = current->pts;
+        if (next_pts != current->pts) {
+            printf("found pts gap: expected pts %ld while current has pts %ld\n", next_pts, current->pts);
             bframe_count = 0;
             continue;
         }
@@ -171,7 +214,6 @@ void MediaFile::cache_frame_infos()
             }
             bframe_count = 0;
         }
-        last_pts = current->pts;
     }
 
     av_packet_free(&packet);
@@ -194,24 +236,27 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
     int current = find_iframe_before(frame_index);
     // printf("starting decoding at frame %d\n", current);
 
+
+    stream_info_t* stream_info = stream_infos + video_stream->index;
+
     // get some infos
-    int64_t target_pts = frame_infos[frame_index].pts;
-    int64_t target_dts = frame_infos[frame_index].dts;
-    int64_t start_pts  = frame_infos[current].pts;
+    int64_t target_pts = stream_info->infos[frame_index].pts;
+    int64_t target_dts = stream_info->infos[frame_index].dts;
+    int64_t start_pts  = stream_info->infos[current].pts;
     // puts("calling pframe after");
     ssize_t pframe_after = find_pframe_after(frame_index);
     if (pframe_after == -1) {
         pframe_after = find_pframe_before(frame_index);
     }
-    int64_t pframe_dts = frame_infos[pframe_after].dts;
+    int64_t pframe_dts = stream_info->infos[pframe_after].dts;
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
     // calculate reorder buffer length
     // this is needed, frames that cause an automatic resizing are lost (at least for h264)
     int reorder_length = 0;
-    for (int i = frame_index; i < frame_count && frame_infos[i].frame_type != AV_PICTURE_TYPE_I && frame_infos[i].frame_type != AV_PICTURE_TYPE_P; i++) {
-        if (frame_infos[i].dts <= target_dts) {
+    for (int i = frame_index; i < stream_info->num_infos && stream_info->infos[i].frame_type != AV_PICTURE_TYPE_I && stream_info->infos[i].frame_type != AV_PICTURE_TYPE_P; i++) {
+        if (stream_info->infos[i].dts <= target_dts) {
             reorder_length++;
         }
     }
@@ -223,7 +268,7 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
     AVFrame *frame = av_frame_alloc();
 
     // get frame
-    int64_t offset = frame_infos[current].offset;
+    int64_t offset = stream_info->infos[current].offset;
     if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
         puts("Seek failed");
         return frame;
@@ -272,10 +317,11 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
  * @param search The index to search from
  * @return index of found I frame
  */
-ssize_t MediaFile::find_iframe_before(ssize_t search)
+ssize_t MediaFile::find_iframe_before(ssize_t search) const
 {
+    stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t iframe_before = search;
-    while (iframe_before >= 0 && !frame_infos[iframe_before].is_keyframe) {
+    while (iframe_before >= 0 && !stream_info->infos[iframe_before].is_keyframe) {
         iframe_before--;
     }
     return iframe_before;
@@ -286,10 +332,11 @@ ssize_t MediaFile::find_iframe_before(ssize_t search)
  * @param search The index to search from
  * @return index of found P or I frame
  */
-ssize_t MediaFile::find_pframe_before(ssize_t search)
+ssize_t MediaFile::find_pframe_before(ssize_t search) const
 {
+    stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t pframe_before = search;
-    while (pframe_before >= 0 && !frame_infos[pframe_before].is_keyframe && frame_infos[pframe_before].frame_type != AV_PICTURE_TYPE_P) {
+    while (pframe_before >= 0 && !stream_info->infos[pframe_before].is_keyframe && stream_info->infos[pframe_before].frame_type != AV_PICTURE_TYPE_P) {
         pframe_before--;
     }
     return pframe_before;
@@ -300,13 +347,14 @@ ssize_t MediaFile::find_pframe_before(ssize_t search)
  * @param search The index to search from
  * @return index of found I frame
  */
-ssize_t MediaFile::find_iframe_after(ssize_t search)
+ssize_t MediaFile::find_iframe_after(ssize_t search) const
 {
+    stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t iframe_after = search;
-    while (iframe_after < frame_count && !frame_infos[iframe_after].is_keyframe) {
+    while (iframe_after < stream_info->num_infos && !stream_info->infos[iframe_after].is_keyframe) {
         iframe_after++;
     }
-    return iframe_after >= frame_count ? -1 : iframe_after;
+    return iframe_after >= stream_info->num_infos ? -1 : iframe_after;
 }
 
 /**
@@ -314,14 +362,15 @@ ssize_t MediaFile::find_iframe_after(ssize_t search)
  * @param search The index to search from
  * @return index of found P or I frame
  */
-ssize_t MediaFile::find_pframe_after(ssize_t search)
+ssize_t MediaFile::find_pframe_after(ssize_t search) const
 {
+    stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t pframe_after = search;
-    while (pframe_after < frame_count && !frame_infos[pframe_after].is_keyframe && frame_infos[pframe_after].frame_type != AV_PICTURE_TYPE_P) {
+    while (pframe_after < stream_info->num_infos && !stream_info->infos[pframe_after].is_keyframe && stream_info->infos[pframe_after].frame_type != AV_PICTURE_TYPE_P) {
         pframe_after++;
     }
     // printf("pframe after: %zd\n", pframe_after);
-    return pframe_after >= frame_count ? -1 : pframe_after;
+    return pframe_after >= stream_info->num_infos ? -1 : pframe_after;
 }
 
 /**
@@ -329,11 +378,116 @@ ssize_t MediaFile::find_pframe_after(ssize_t search)
  * @param frame_index The index of the frame
  * @return The info for the frame or NULL if index is invalid
  */
-frame_info_t* MediaFile::get_frame_info(ssize_t frame_index) {
-    if (frame_index < 0 || frame_index >= frame_count) {
+const packet_info_t * MediaFile::get_frame_info(ssize_t frame_index) const
+{
+    if (frame_index < 0 || frame_index >= stream_infos[video_stream->index].num_infos) {
         return NULL;
     } else {
-        return frame_infos + frame_index;
+        return stream_infos[video_stream->index].infos + frame_index;
     }
+}
+
+bool compare_packet(const packet_info_t &a, const packet_info_t &b) { return a.pts < b.pts; }
+
+/**
+ * Get the first packet ending after the given pts
+ * @param stream_index The index of the stream
+ * @param pts The pts to search for
+ * @returns The frame info or NULL if the pts is after file end
+ */
+const packet_info_t *MediaFile::get_packet_info(int stream_index, int64_t pts) const
+{
+    if (stream_index < 0 || stream_index >= format_context->nb_streams) {
+        return NULL;
+    }
+
+    // get offset for stream
+    packet_info_t search = { .pts=pts, .duration=0 };
+    packet_info_t * last = stream_infos[stream_index].infos + stream_infos[stream_index].num_infos;
+    packet_info_t * lower_bound = std::lower_bound(stream_infos[stream_index].infos, last, search, compare_packet);
+    return lower_bound == last ? NULL : lower_bound;
+}
+
+/**
+ * Get the file offset of the first packet ending after the given pts
+ * @param int64_t pts The pts to search for
+ * @returns The offset or -1 on error
+ */
+ssize_t MediaFile::offset_before_pts(int64_t pts) const {
+    if (stream_infos == NULL) {
+        return -1;
+    }
+
+    stream_info_t* video_info = stream_infos + video_stream->index;
+    ssize_t result = video_info->infos[video_info->num_infos - 1].offset;
+    const packet_info_t* lower_bound = get_packet_info(video_stream->index, pts);
+    if (lower_bound == NULL) {
+        lower_bound = video_info->infos + video_info->num_infos - 1;
+    }
+
+    // find previous I frame
+    for (const packet_info_t * current = lower_bound; current >= video_info->infos && !current->is_keyframe; current--) {
+        if (current->offset < result) {
+            result = current->offset;
+        }
+    }
+
+    // check other streams
+    for (int i = 0; i < format_context->nb_streams; i++) {
+        if (i == video_stream->index) {
+            continue;
+        }
+        lower_bound = get_packet_info(i, pts);
+        if (lower_bound == NULL) {
+            continue;
+        } else if (lower_bound->offset < result) {
+            result = lower_bound->offset;
+        }
+    }
+    return result;
+}
+
+/**
+ * Get the file offset of the last packet starting before the given pts
+ * @param int64_t pts The pts to search for
+ * @returns The offset or file length if the pts is after the file end
+ */
+ssize_t MediaFile::offset_after_pts(int64_t pts) const {
+    // get offset for video stream
+    stream_info_t* video_info = stream_infos + video_stream->index;
+    const packet_info_t* upper_bound = get_packet_info(video_stream->index, pts);
+    if (upper_bound == NULL) {
+        return filesize;
+    }
+
+    // find next keyframe
+    // since the frames are not ordered by pts, search for the next but one keyframe
+    bool keyframe_found = false;
+    for (; upper_bound < video_info->infos + video_info->num_infos; upper_bound++) {
+        if (upper_bound->is_keyframe) {
+            if (keyframe_found) {
+                break;
+            }
+            keyframe_found = true;
+        }
+    }
+    if (upper_bound >= video_info->infos + video_info->num_infos) {
+        return filesize;
+    }
+    ssize_t result = upper_bound->offset;
+
+    // check other streams
+    for (int i = 0; i < format_context->nb_streams; i++) {
+        if (i == video_stream->index) {
+            continue;
+        }
+        upper_bound = get_packet_info(i, pts);
+        if (upper_bound == NULL) {
+            continue;
+        } else if (upper_bound->offset > result) {
+            result = upper_bound->offset;
+        }
+    }
+    return result;
 }
 

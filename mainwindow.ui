@@ -70,7 +70,7 @@
      <rect>
       <x>30</x>
       <y>450</y>
-      <width>351</width>
+      <width>361</width>
       <height>25</height>
      </rect>
     </property>
@@ -181,7 +181,7 @@
      <number>0</number>
     </property>
     <property name="orientation">
-     <enum>Qt::Horizontal</enum>
+     <enum>Qt::Orientation::Horizontal</enum>
     </property>
    </widget>
    <widget class="QPushButton" name="go_cut_in">
@@ -208,6 +208,70 @@
     </property>
     <property name="text">
      <string>Go CutOut</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="prev_media_file">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>510</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="next_media_file">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>510</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&gt;</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
+   <widget class="QLabel" name="current_media_file">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>480</y>
+      <width>361</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="add_cut">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>510</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Add Cut</string>
+    </property>
+    <property name="shortcut">
+     <string>Right</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
     </property>
    </widget>
   </widget>
@@ -241,11 +305,10 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen_Video">
    <property name="icon">
-    <iconset theme="document-open">
-     <normaloff>.</normaloff>.</iconset>
+    <iconset theme="document-open"/>
    </property>
    <property name="text">
-    <string>Open Video</string>
+    <string>&amp;Open Video</string>
    </property>
    <property name="shortcut">
     <number>-1</number>
@@ -253,53 +316,49 @@
   </action>
   <action name="actionSettings">
    <property name="icon">
-    <iconset theme="configure">
-     <normaloff>.</normaloff>.</iconset>
+    <iconset theme="configure"/>
    </property>
    <property name="text">
-    <string>Settings</string>
+    <string>&amp;Settings</string>
    </property>
    <property name="shortcut">
     <number>-1</number>
    </property>
    <property name="menuRole">
-    <enum>QAction::PreferencesRole</enum>
+    <enum>QAction::MenuRole::PreferencesRole</enum>
    </property>
   </action>
   <action name="actionAbout">
    <property name="icon">
-    <iconset theme="help-about">
-     <normaloff>.</normaloff>.</iconset>
+    <iconset theme="help-about"/>
    </property>
    <property name="text">
-    <string>About</string>
+    <string>&amp;About</string>
    </property>
    <property name="menuRole">
-    <enum>QAction::AboutRole</enum>
+    <enum>QAction::MenuRole::AboutRole</enum>
    </property>
   </action>
   <action name="actionExit">
    <property name="icon">
-    <iconset theme="application-exit">
-     <normaloff>.</normaloff>.</iconset>
+    <iconset theme="application-exit"/>
    </property>
    <property name="text">
-    <string>Quit</string>
+    <string>&amp;Quit</string>
    </property>
    <property name="shortcut">
     <number>-1</number>
    </property>
    <property name="menuRole">
-    <enum>QAction::QuitRole</enum>
+    <enum>QAction::MenuRole::QuitRole</enum>
    </property>
   </action>
   <action name="actionCut_Video">
    <property name="icon">
-    <iconset theme="edit-cut">
-     <normaloff>.</normaloff>.</iconset>
+    <iconset theme="edit-cut"/>
    </property>
    <property name="text">
-    <string>Cut Video</string>
+    <string>&amp;Cut Video</string>
    </property>
   </action>
  </widget>

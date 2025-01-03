@@ -1,3 +1,7 @@
 # ignore artifacts
 CMakeLists.txt.user
+.kdev4/
+MCut.kdev4
 build/
+build_kdevelop/
+test/
