@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>630</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>580</x>
-      <y>450</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -37,7 +37,7 @@
     <property name="geometry">
      <rect>
       <x>490</x>
-      <y>450</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -68,9 +68,9 @@
    <widget class="QLabel" name="current_pos">
     <property name="geometry">
      <rect>
-      <x>30</x>
+      <x>400</x>
       <y>450</y>
-      <width>361</width>
+      <width>261</width>
       <height>25</height>
      </rect>
     </property>
@@ -82,7 +82,7 @@
     <property name="geometry">
      <rect>
       <x>400</x>
-      <y>510</y>
+      <y>540</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -95,7 +95,7 @@
     <property name="geometry">
      <rect>
       <x>400</x>
-      <y>480</y>
+      <y>510</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -108,7 +108,7 @@
     <property name="geometry">
      <rect>
       <x>490</x>
-      <y>480</y>
+      <y>510</y>
       <width>171</width>
       <height>25</height>
      </rect>
@@ -121,7 +121,7 @@
     <property name="geometry">
      <rect>
       <x>490</x>
-      <y>510</y>
+      <y>540</y>
       <width>171</width>
       <height>25</height>
      </rect>
@@ -134,7 +134,7 @@
     <property name="geometry">
      <rect>
       <x>400</x>
-      <y>450</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -153,7 +153,7 @@
     <property name="geometry">
      <rect>
       <x>670</x>
-      <y>450</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -188,7 +188,7 @@
     <property name="geometry">
      <rect>
       <x>670</x>
-      <y>480</y>
+      <y>510</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -201,7 +201,7 @@
     <property name="geometry">
      <rect>
       <x>670</x>
-      <y>510</y>
+      <y>540</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -214,7 +214,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>510</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -230,7 +230,7 @@
     <property name="geometry">
      <rect>
       <x>120</x>
-      <y>510</y>
+      <y>480</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -246,7 +246,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>480</y>
+      <y>450</y>
       <width>361</width>
       <height>25</height>
      </rect>
@@ -259,7 +259,7 @@
     <property name="geometry">
      <rect>
       <x>310</x>
-      <y>510</y>
+      <y>540</y>
       <width>80</width>
       <height>25</height>
      </rect>
@@ -274,6 +274,80 @@
      <number>10</number>
     </property>
    </widget>
+   <widget class="QPushButton" name="next_cut">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>540</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&gt;</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="prev_cut">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>540</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
+   <widget class="QLabel" name="current_cut">
+    <property name="geometry">
+     <rect>
+      <x>30</x>
+      <y>510</y>
+      <width>361</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="remove_cut">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>540</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Delete Cut</string>
+    </property>
+    <property name="shortcut">
+     <string>Right</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="jump_to_frame">
+    <property name="geometry">
+     <rect>
+      <x>670</x>
+      <y>450</y>
+      <width>81</width>
+      <height>32</height>
+     </rect>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -286,7 +360,7 @@
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>File</string>
+     <string>Fi&amp;le</string>
     </property>
     <addaction name="actionOpen_Video"/>
     <addaction name="actionCut_Video"/>
@@ -312,6 +386,9 @@
    </property>
    <property name="shortcut">
     <number>-1</number>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
   <action name="actionSettings">
@@ -359,6 +436,9 @@
    </property>
    <property name="text">
     <string>&amp;Cut Video</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
    </property>
   </action>
  </widget>

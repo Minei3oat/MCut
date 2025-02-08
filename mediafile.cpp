@@ -229,6 +229,24 @@ void MediaFile::build_cache()
         }
     }
 
+    for (int i = 0; i < format_context->nb_streams; i++) {
+        AVMediaType type = format_context->streams[i]->codecpar->codec_type;
+        // do not examine teletext for now
+        if (avcodec_find_decoder(format_context->streams[i]->codecpar->codec_id) == NULL) {
+            continue;
+        }
+        current = stream_infos[i].infos;
+        int64_t next_pts = current->pts;
+        for (unsigned long j = 0; j < stream_infos[i].num_infos; next_pts = current->pts + current->duration, j++, current++) {
+            if (next_pts != current->pts) {
+                printf("found pts gap for stream %d: expected pts %ld while current has pts %ld\n", i, next_pts, current->pts);
+                bframe_count = 0;
+                gop_count = 0;
+                continue;
+            }
+        }
+    }
+
     av_packet_free(&packet);
 }
 
@@ -426,11 +444,11 @@ ssize_t MediaFile::offset_before_pts(int64_t pts) const {
     }
 
     stream_info_t* video_info = stream_infos + video_stream->index;
-    ssize_t result = video_info->infos[video_info->num_infos - 1].offset;
     const packet_info_t* lower_bound = get_packet_info(video_stream->index, pts);
     if (lower_bound == NULL) {
         lower_bound = video_info->infos + video_info->num_infos - 1;
     }
+    ssize_t result = lower_bound->offset;
 
     // find previous I frame
     for (const packet_info_t * current = lower_bound; current >= video_info->infos && !current->is_keyframe; current--) {
@@ -496,5 +514,18 @@ ssize_t MediaFile::offset_after_pts(int64_t pts) const {
         }
     }
     return result;
+}
+
+/**
+ * Check if the stream with the given index is an audio stream
+ * @param stream_index The index of the stream to check
+ * @returns True, if the stream exists and is an audio stream, False otherwise
+ */
+bool MediaFile::is_audio_stream(int stream_index) const {
+    if (stream_index < -1 || stream_index >= format_context->nb_streams) {
+        return false;
+    }
+
+    return format_context->streams[stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO;
 }
 

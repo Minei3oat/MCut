@@ -5,7 +5,7 @@
 #include "mediafile.h"
 
 #define MAX_MEDIA_FILES 32
-#define MAX_CUTS 1
+#define MAX_CUTS 64
 
 extern "C" {
     #include <libavcodec/avcodec.h>
@@ -41,6 +41,10 @@ private slots:
 
     void on_prev_media_file_clicked();
     void on_next_media_file_clicked();
+
+    void on_prev_cut_clicked();
+    void on_next_cut_clicked();
+
     void on_prev_frame_clicked();
     void on_next_frame_clicked();
     void on_prev_frame_2_clicked();
@@ -52,25 +56,20 @@ private slots:
     void on_go_cut_out_clicked();
 
     void on_add_cut_clicked();
+    void on_delete_cut_clicked() {}
 
     void on_position_slider_sliderMoved(int position);
+    void on_jump_to_frame_returnPressed();
 
 private:
     void render_frame();
+    void change_media_file();
+    void change_cut();
 
-    /**
-    * Transcode video frames
-    * @param media_file The source to transcode
-    * @param cut_in The first frame to transcode
-    * @param cut_out The last frame to transcode
-    * @param output_context The AVFormatContext of the output
-    * @param output_stream The video stream of the output
-    * @param start_dts The dts of the first frame
-    * @param pts_offset The difference between the pts in the input and the output
-    * @param stream_map A mapping between input and output streams
-    * @param precut If true, add packets of other frames that overlap the start of the first frame
-    */
-    void transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset);
+    AVCodecContext* get_video_decode_context(MediaFile* media_file);
+    AVCodecContext* get_video_encode_context(MediaFile* media_file, AVStream* output_stream);
+    int64_t flush_encode_context(AVCodecContext** encode_context, AVFormatContext* output_context, int stream_id, int64_t dts, int64_t frame_duration);
+    int64_t transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset, AVCodecContext* encode_context);
 
     Ui::MainWindow *ui;
 
@@ -79,8 +78,9 @@ private:
     ssize_t num_media_files = 0;
 
     cut_t cuts[MAX_CUTS];
-    ssize_t num_cuts = 0;
-    ssize_t cut_in = -1;
-    ssize_t cut_out = -1;
+    ssize_t current_cut = 0;
+    ssize_t num_cuts = 1;
+    ssize_t cut_in = 0;
+    ssize_t cut_out = 0;
 };
 #endif // MAINWINDOW_H

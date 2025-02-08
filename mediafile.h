@@ -53,6 +53,8 @@ public:
     AVFormatContext* get_format_context() { return format_context; }
     AVStream* get_video_stream() { return video_stream; }
 
+    bool is_audio_stream(int stream_index) const;
+
     ssize_t current_frame = 0;
 
 private:
