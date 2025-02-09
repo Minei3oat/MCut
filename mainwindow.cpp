@@ -587,8 +587,13 @@ void MainWindow::on_actionCut_Video_triggered()
 
     // preparations
     int64_t* next_dts = (int64_t*) malloc(sizeof(int64_t) * format_context->nb_streams);
+    int64_t start_pts = cuts[0].media_file->get_frame_info(cuts[0].cut_in)->pts;
     for (int i = 0; i < format_context->nb_streams; i++) {
-        next_dts[i] = AV_NOPTS_VALUE;
+        if (i == cuts[0].media_file->get_video_stream()->index) {
+            next_dts[i] = AV_NOPTS_VALUE;
+        } else {
+            next_dts[i] = start_pts;
+        }
     }
     int64_t* audio_desync = (int64_t*) malloc(sizeof(int64_t) * format_context->nb_streams);
     memset(audio_desync, 0, sizeof(int64_t) * format_context->nb_streams);
