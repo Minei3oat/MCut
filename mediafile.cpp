@@ -230,9 +230,8 @@ void MediaFile::build_cache()
     }
 
     for (int i = 0; i < format_context->nb_streams; i++) {
-        AVMediaType type = format_context->streams[i]->codecpar->codec_type;
-        // do not examine teletext for now
-        if (avcodec_find_decoder(format_context->streams[i]->codecpar->codec_id) == NULL) {
+        // only examine audio for now, since we use only one video stream and subtitles are not continous
+        if (!is_audio_stream(i)) {
             continue;
         }
         current = stream_infos[i].infos;
