@@ -125,6 +125,34 @@ void MainWindow::on_next_frame_2_clicked()
     render_frame();
 }
 
+void MainWindow::on_prev_frame_3_clicked()
+{
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    MediaFile* media_file = media_files[current_media_file];
+    media_file->current_frame -= 12;
+    if (media_file->current_frame < 0) {
+        media_file->current_frame = 0;
+    }
+    render_frame();
+}
+
+void MainWindow::on_next_frame_3_clicked()
+{
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    MediaFile* media_file = media_files[current_media_file];
+    media_file->current_frame += 12;
+    if (media_file->current_frame >= media_file->get_frame_count()) {
+        media_file->current_frame = media_file->get_frame_count() - 1;
+    }
+    render_frame();
+}
+
 void MainWindow::on_position_slider_sliderMoved(int position)
 {
     if (current_media_file < 0 || current_media_file >= num_media_files) {

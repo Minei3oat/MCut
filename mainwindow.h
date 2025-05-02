@@ -49,6 +49,8 @@ private slots:
     void on_next_frame_clicked();
     void on_prev_frame_2_clicked();
     void on_next_frame_2_clicked();
+    void on_prev_frame_3_clicked();
+    void on_next_frame_3_clicked();
 
     void on_set_cut_in_clicked();
     void on_set_cut_out_clicked();
