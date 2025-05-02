@@ -345,6 +345,9 @@ ssize_t MediaFile::find_iframe_before(ssize_t search) const
 {
     stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t iframe_before = search;
+    if (iframe_before >= stream_info->num_infos) {
+        iframe_before = stream_info->num_infos - 1;
+    }
     while (iframe_before >= 0 && !stream_info->infos[iframe_before].is_keyframe) {
         iframe_before--;
     }
@@ -360,6 +363,9 @@ ssize_t MediaFile::find_pframe_before(ssize_t search) const
 {
     stream_info_t* stream_info = stream_infos + video_stream->index;
     ssize_t pframe_before = search;
+    if (pframe_before >= stream_info->num_infos) {
+        pframe_before = stream_info->num_infos - 1;
+    }
     while (pframe_before >= 0 && !stream_info->infos[pframe_before].is_keyframe && stream_info->infos[pframe_before].frame_type != AV_PICTURE_TYPE_P) {
         pframe_before--;
     }

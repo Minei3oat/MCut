@@ -207,13 +207,31 @@ void MainWindow::on_set_cut_out_clicked()
 
 void MainWindow::on_go_cut_in_clicked()
 {
-    media_files[current_media_file]->current_frame = cut_in;
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    ssize_t frame_count = media_files[current_media_file]->get_frame_count();
+    if (cut_in < frame_count) {
+        media_files[current_media_file]->current_frame = cut_in;
+    } else {
+        media_files[current_media_file]->current_frame = frame_count - 1;
+    }
     render_frame();
 }
 
 void MainWindow::on_go_cut_out_clicked()
 {
-    media_files[current_media_file]->current_frame = cut_out;
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    ssize_t frame_count = media_files[current_media_file]->get_frame_count();
+    if (cut_out < frame_count) {
+        media_files[current_media_file]->current_frame = cut_out;
+    } else {
+        media_files[current_media_file]->current_frame = frame_count - 1;
+    }
     render_frame();
 }
 
@@ -267,7 +285,12 @@ void MainWindow::refresh_total_length() {
 }
 
 void MainWindow::on_add_cut_clicked() {
-    if (current_media_file < 0 || current_media_file >= num_media_files || num_cuts >= MAX_CUTS) {
+    if (current_media_file < 0 || current_media_file >= num_media_files || num_cuts >= MAX_CUTS || cut_in > cut_out) {
+        return;
+    }
+
+    ssize_t frame_count = media_files[current_media_file]->get_frame_count();
+    if (cut_in < 0 || cut_out < 0 || cut_in >= frame_count || cut_in >= frame_count) {
         return;
     }
 
