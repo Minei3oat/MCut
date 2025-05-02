@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QLabel>
 #include "mediafile.h"
 
 #define MAX_MEDIA_FILES 32
@@ -67,6 +68,11 @@ private:
     void render_frame();
     void change_media_file();
     void change_cut();
+    void refresh_total_length();
+
+    int sprint_frametime(char* buffer, ssize_t index);
+    QString frame_to_string(MediaFile* media_file, ssize_t index);
+    QString cut_to_string(ssize_t index);
 
     AVCodecContext* get_video_decode_context(MediaFile* media_file);
     AVCodecContext* get_video_encode_context(MediaFile* media_file, AVStream* output_stream);
@@ -84,5 +90,7 @@ private:
     ssize_t num_cuts = 1;
     ssize_t cut_in = 0;
     ssize_t cut_out = 0;
+
+    QLabel total_length_label;
 };
 #endif // MAINWINDOW_H

@@ -14,6 +14,8 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    ui->statusbar->addWidget(&total_length_label, 1);
+    refresh_total_length();
 }
 
 MainWindow::~MainWindow()
@@ -215,6 +217,55 @@ void MainWindow::on_go_cut_out_clicked()
     render_frame();
 }
 
+int MainWindow::sprint_frametime(char* buffer, ssize_t index) {
+    int64_t real_time = 0;
+    if (index > 0) {
+        AVRational frame_rate = media_files[0]->get_video_stream()->avg_frame_rate;
+        real_time = index * 1000 * frame_rate.den / frame_rate.num;
+    }
+    return sprintf(buffer, "%ld:%02ld:%02ld.%03ld", real_time/1000/3600, (real_time/1000/60) % 60, (real_time/1000) % 60, real_time % 1000);
+}
+
+QString MainWindow::frame_to_string(MediaFile* media_file, ssize_t index) {
+    char buffer[64] = "";
+
+    AVFrame* frame = media_file->get_frame(index);
+    int current = sprint_frametime(buffer, index);
+    sprintf(buffer + current, " - %lu [%c/%c] (%ld)", index, av_get_picture_type_char(frame->pict_type),
+            av_get_picture_type_char((AVPictureType) media_file->get_frame_info(index)->frame_type), frame->pts);
+
+    return QString(buffer);
+}
+
+QString MainWindow::cut_to_string(ssize_t index) {
+    char buffer[128] = "";
+
+    ssize_t total_frames_before = 0;
+    for (int i = 0; i < index; i++) {
+        total_frames_before += cuts[i].cut_out - cuts[i].cut_in + 1;
+    }
+    ssize_t total_frames_after = total_frames_before + cut_out - cut_in + 1;
+    int current = sprintf(buffer, "[%zd] ", index);
+    current += sprint_frametime(buffer + current, total_frames_before);
+    current += sprintf(buffer + current, " (%lu) [%c] - ", total_frames_before, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cut_in)->frame_type));
+    current += sprint_frametime(buffer + current, total_frames_after);
+    current += sprintf(buffer + current, " (%lu) [%c]", total_frames_after, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cut_out)->frame_type));
+
+    return QString(buffer);
+}
+
+void MainWindow::refresh_total_length() {
+    char buffer[64] = "";
+    ssize_t total_frames = 0;
+    for (int i = 0; i < num_cuts - 1; i++) {
+        total_frames += cuts[i].cut_out - cuts[i].cut_in + 1;
+    }
+    int current = sprintf(buffer, "%zd cuts - ", num_cuts - 1);
+    current += sprint_frametime(buffer + current, total_frames);
+    sprintf(buffer + current, " (%ld)", total_frames);
+    total_length_label.setText(QString(buffer));
+}
+
 void MainWindow::on_add_cut_clicked() {
     if (current_media_file < 0 || current_media_file >= num_media_files || num_cuts >= MAX_CUTS) {
         return;
@@ -231,15 +282,10 @@ void MainWindow::on_add_cut_clicked() {
     }
 
     // update number of cuts and total runtime
-    char buffer[64] = "";
-    ssize_t total_frames = 0;
-    for (int i = 0; i < num_cuts - 1; i++) {
-        total_frames += cuts[i].cut_out - cuts[i].cut_in + 1;
-    }
-    AVRational frame_rate = media_files[0]->get_video_stream()->avg_frame_rate;
-    int64_t real_time = total_frames * 1000 * frame_rate.den / frame_rate.num;
-    sprintf(buffer, "%zd cuts - %ld:%02ld:%02ld.%03ld (%lu)", num_cuts - 1, real_time/1000/3600, (real_time/1000/60) % 60, (real_time/1000) % 60, real_time % 1000, total_frames);
-    ui->statusbar->showMessage(QString(buffer));
+    refresh_total_length();
+
+    // show added cut time
+    ui->current_cut->setText(cut_to_string(current_cut - 1));
 }
 
 void MainWindow::change_cut() {
@@ -254,20 +300,9 @@ void MainWindow::change_cut() {
     cut_out = cuts[current_cut].cut_out;
 
     // update resulting cut time
-    char buffer[128] = "";
-    ssize_t total_frames_before = 0;
-    for (int i = 0; i < current_cut; i++) {
-        total_frames_before += cuts[i].cut_out - cuts[i].cut_in + 1;
-    }
-    AVRational frame_rate = media_files[0]->get_video_stream()->avg_frame_rate;
-    int64_t real_time_before = total_frames_before * 1000 * frame_rate.den / frame_rate.num;
-    ssize_t total_frames_after = total_frames_before + cut_out - cut_in + 1;
-    int64_t real_time_after = total_frames_after * 1000 * frame_rate.den / frame_rate.num;
-    sprintf(buffer, "[%zd] %ld:%02ld:%02ld.%03ld (%lu) [%c] - %ld:%02ld:%02ld.%03ld (%lu) [%c]", current_cut, real_time_before/1000/3600, (real_time_before/1000/60) % 60,
-            (real_time_before/1000) % 60, real_time_before % 1000, total_frames_before, av_get_picture_type_char((AVPictureType) cuts[current_cut].media_file->get_frame_info(cut_in)->frame_type),
-            real_time_after/1000/3600, (real_time_after/1000/60) % 60, (real_time_after/1000) % 60, real_time_after % 1000, total_frames_after,
-            av_get_picture_type_char((AVPictureType) cuts[current_cut].media_file->get_frame_info(cut_out)->frame_type));
-    ui->current_cut->setText(QString(buffer));
+    ui->current_cut->setText(cut_to_string(current_cut));
+    ui->cut_in_pos->setText(frame_to_string(cuts[current_cut].media_file, cut_in));
+    ui->cut_out_pos->setText(frame_to_string(cuts[current_cut].media_file, cut_out));
 }
 
 void MainWindow::on_prev_cut_clicked() {
@@ -339,11 +374,7 @@ void MainWindow::render_frame()
     ui->video_frame->update();
 
     // update current position
-    char buffer[64] = "";
-    AVRational frame_rate = media_file->get_video_stream()->avg_frame_rate;
-    int64_t real_time = media_file->current_frame * 1000 * frame_rate.den / frame_rate.num;
-    sprintf(buffer, "%ld:%02ld:%02ld.%03ld - %lu [%c/%c] (%ld)", real_time/1000/3600, (real_time/1000/60) % 60, (real_time/1000) % 60, real_time % 1000, media_file->current_frame, av_get_picture_type_char(frame->pict_type), av_get_picture_type_char((AVPictureType) media_file->get_frame_info(media_file->current_frame)->frame_type), frame->pts);
-    ui->current_pos->setText(QString(buffer));
+    ui->current_pos->setText(frame_to_string(media_file, media_file->current_frame));
 
     // cleanup
     sws_freeContext(sws_context);
