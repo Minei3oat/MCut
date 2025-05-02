@@ -641,9 +641,13 @@ void MainWindow::on_actionCut_Video_triggered()
         ssize_t remux_start = cuts[i].media_file->find_iframe_after(cuts[i].cut_in);
         ssize_t remux_end = cuts[i].media_file->find_pframe_before(cuts[i].cut_out);
         int64_t pts_offset = cuts[i].media_file->get_frame_info(cuts[i].cut_in)->pts - next_video_pts;
+#ifdef TRACE
         printf("computed offset: %ld\n", pts_offset);
+#endif
         ssize_t first_iframe = remux_start;
-        // printf("computed remux values: %ld/%ld/%ld\n", remux_start, remux_end, remux_save_end);
+#ifdef TRACE
+        printf("computed remux values: %ld/%ld\n", remux_start, remux_end);
+#endif
 
         // fix small cuts
         if (remux_start > cuts[i].cut_out) {
@@ -651,7 +655,6 @@ void MainWindow::on_actionCut_Video_triggered()
             remux_end = cuts[i].cut_out;
             puts("fixed small cut");
         }
-        printf("cut_in: %zd; remux_start: %zd\n", cuts[i].cut_in, remux_start);
 
         int64_t unused_dts = 0;
         for (int j = remux_start - 1; j >= 0 && !frame_infos[j].is_keyframe; j--) {
@@ -685,6 +688,8 @@ void MainWindow::on_actionCut_Video_triggered()
         long end_pts = frame_infos[cuts[i].cut_out].pts + packet_length_dts;
         long remux_start_pts = frame_infos[remux_start].pts;
         long remux_end_pts = frame_infos[remux_end].pts + packet_length_dts;
+        printf("cut_in: %zd (%ld); remux_start: %zd (%ld)\n", cuts[i].cut_in, start_pts, remux_start, remux_start_pts);
+        printf("cut_out: %zd (%ld); remux_end: %zd\n (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
 
         // calculate audio desync
         if (i > 0) {
