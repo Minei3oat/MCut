@@ -300,7 +300,7 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
 
     // decode frame
     frame->pts = target_pts-1;
-    while(frame->pts != target_pts) {
+    while(frame->pts < target_pts) {
         if (av_read_frame(format_context, packet)) {
             puts("failed to read packet");
             av_packet_unref(packet);
