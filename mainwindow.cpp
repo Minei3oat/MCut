@@ -655,9 +655,6 @@ void MainWindow::on_actionCut_Video_triggered()
         }
     }
 
-    printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
-    printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
-
     // write header
     avio_open(&output_context->pb, filename.c_str(), AVIO_FLAG_WRITE);
     if (avformat_write_header(output_context, NULL) < 0) {
@@ -666,6 +663,9 @@ void MainWindow::on_actionCut_Video_triggered()
         avformat_free_context(output_context);
         return;
     }
+
+    printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
+    printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
 
     // preparations
     int64_t* next_dts = (int64_t*) calloc(format_context->nb_streams, sizeof(int64_t));
@@ -735,7 +735,7 @@ void MainWindow::on_actionCut_Video_triggered()
         long remux_start_pts = frame_infos[remux_start].pts;
         long remux_end_pts = frame_infos[remux_end].pts + packet_length_dts;
         printf("cut_in: %zd (%ld); remux_start: %zd (%ld)\n", cuts[i].cut_in, start_pts, remux_start, remux_start_pts);
-        printf("cut_out: %zd (%ld); remux_end: %zd\n (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
+        printf("cut_out: %zd (%ld); remux_end: %zd (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
 
         // calculate audio desync
         if (i > 0) {
