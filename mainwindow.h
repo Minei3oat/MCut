@@ -74,6 +74,7 @@ private:
     QString frame_to_string(MediaFile* media_file, ssize_t index);
     QString cut_to_string(ssize_t index);
 
+    int write_packet(AVFormatContext* output_context, AVPacket* packet);
     AVCodecContext* get_video_decode_context(MediaFile* media_file);
     AVCodecContext* get_video_encode_context(MediaFile* media_file, AVStream* output_stream);
     int64_t flush_encode_context(AVCodecContext** encode_context, AVFormatContext* output_context, int stream_id, int64_t dts, int64_t frame_duration);

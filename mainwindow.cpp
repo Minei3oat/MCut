@@ -409,6 +409,20 @@ void MainWindow::render_frame()
 }
 
 /**
+ * Write a packet to the output stream
+ * @param output_context The format context to write the packet to
+ * @param packet The packet to write
+ * @return The result from av_interleaved_write_frame
+ */
+int MainWindow::write_packet(AVFormatContext* output_context, AVPacket* packet) {
+    av_packet_rescale_ts(packet, media_files[0]->get_video_stream()->time_base, output_context->streams[0]->time_base);
+#ifdef TRACE
+    printf("Writing output packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
+#endif
+    return av_interleaved_write_frame(output_context, packet);
+}
+
+/**
  * Create a decode context for the video stream of the given medie file. The returned codec context must be freed manually
  * @param media_file The media file to get the video decoder for
  * @return The codec context for decoding the video stream
@@ -481,7 +495,7 @@ int64_t MainWindow::flush_encode_context(AVCodecContext** encode_context, AVForm
         printf("Writing transcoded packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
         packet->stream_index = stream_id;
-        av_interleaved_write_frame(output_context, packet);
+        write_packet(output_context, packet);
     }
 
     // cleanup
@@ -568,7 +582,7 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
                     printf("Writing transcoded packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
                     packet->stream_index = output_stream->index;
-                    av_interleaved_write_frame(output_context, packet);
+                    write_packet(output_context, packet);
                 }
 
                 current++;
@@ -614,8 +628,14 @@ void MainWindow::on_actionCut_Video_triggered()
     // add streams
     AVStream *output_video_stream = avformat_new_stream(output_context, NULL);
     avcodec_parameters_copy(output_video_stream->codecpar, video_stream->codecpar);
+    output_video_stream->codecpar->codec_tag = 0;
     output_video_stream->avg_frame_rate = video_stream->avg_frame_rate;
     output_video_stream->time_base = video_stream->time_base;
+    printf("video: %d/%d, codec: %d/%d\n", video_stream->sample_aspect_ratio.num, video_stream->sample_aspect_ratio.den, video_stream->codecpar->sample_aspect_ratio.num, video_stream->codecpar->sample_aspect_ratio.den);
+    if (output_video_stream->sample_aspect_ratio.num == 0) {
+        output_video_stream->sample_aspect_ratio = output_video_stream->codecpar->sample_aspect_ratio;
+    }
+    printf("video: %d/%d, codec: %d/%d\n", output_video_stream->sample_aspect_ratio.num, output_video_stream->sample_aspect_ratio.den, output_video_stream->codecpar->sample_aspect_ratio.num, output_video_stream->codecpar->sample_aspect_ratio.den);
     index[video_stream->index] = output_video_stream->index;
     output_video_stream->disposition = video_stream->disposition;
     av_dict_copy(&output_video_stream->metadata, video_stream->metadata, 0);
@@ -641,6 +661,7 @@ void MainWindow::on_actionCut_Video_triggered()
         // ) {
             AVStream* output_stream = avformat_new_stream(output_context, NULL);
             avcodec_parameters_copy(output_stream->codecpar, input_stream->codecpar);
+            output_stream->codecpar->codec_tag = 0;
             output_stream->disposition = input_stream->disposition;
             av_dict_copy(&output_stream->metadata, input_stream->metadata, 0);
             index[input_stream->index] = output_stream->index;
@@ -777,21 +798,21 @@ void MainWindow::on_actionCut_Video_triggered()
                 packet->pts += audio_desync[packet->stream_index];
                 packet->dts += audio_desync[packet->stream_index];
             }
-            bool write_packet = false;
+            bool do_write_packet = false;
             if (index[packet->stream_index] != -1) {
                 if (packet->stream_index == video_stream->index) {
-                    write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
+                    do_write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
                     if (packet->pts == remux_start_pts) {
                         packet->dts += unused_dts;
                     }
                 } else if (packet->dts - pts_offset >= next_dts[packet->stream_index]) {
-                    write_packet = packet->pts + packet->duration <= end_pts;
-                    if (!write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
-                        write_packet = packet->pts + packet->duration / 2 < end_pts;
+                    do_write_packet = packet->pts + packet->duration <= end_pts;
+                    if (!do_write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
+                        do_write_packet = packet->pts + packet->duration / 2 < end_pts;
                     }
                 }
             }
-            if (write_packet) {
+            if (do_write_packet) {
                 packet->pts -= pts_offset;
                 packet->dts -= pts_offset;
                 next_dts[packet->stream_index] = packet->dts + packet->duration;
@@ -799,7 +820,7 @@ void MainWindow::on_actionCut_Video_triggered()
                 printf("Writing packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
                 packet->stream_index = index[packet->stream_index];
-                av_interleaved_write_frame(output_context, packet);
+                write_packet(output_context, packet);
             }
             av_packet_unref(packet);
         }
