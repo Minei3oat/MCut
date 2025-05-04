@@ -164,7 +164,7 @@ void MainWindow::on_position_slider_sliderMoved(int position)
     MediaFile* media_file = media_files[current_media_file];
     ssize_t target = media_file->find_iframe_after(position);
     if (target == -1) {
-        target = media_file->find_iframe_before( position);
+        target = media_file->find_iframe_before(position);
     }
 
     if (target != media_file->current_frame) {
