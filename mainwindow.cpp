@@ -668,19 +668,11 @@ void MainWindow::on_actionCut_Video_triggered()
     }
 
     // preparations
-    int64_t* next_dts = (int64_t*) malloc(sizeof(int64_t) * format_context->nb_streams);
-    int64_t start_pts = cuts[0].media_file->get_frame_info(cuts[0].cut_in)->pts;
-    for (int i = 0; i < format_context->nb_streams; i++) {
-        if (i == cuts[0].media_file->get_video_stream()->index) {
-            next_dts[i] = AV_NOPTS_VALUE;
-        } else {
-            next_dts[i] = start_pts;
-        }
-    }
-    int64_t* audio_desync = (int64_t*) malloc(sizeof(int64_t) * format_context->nb_streams);
-    memset(audio_desync, 0, sizeof(int64_t) * format_context->nb_streams);
-    int64_t next_video_pts = cuts[0].media_file->get_frame_info(cuts[0].cut_in)->pts;
+    int64_t* next_dts = (int64_t*) calloc(format_context->nb_streams, sizeof(int64_t));
+    int64_t* audio_desync = (int64_t*) calloc(format_context->nb_streams, sizeof(int64_t));
+    int64_t next_video_pts = 0;
     AVCodecContext* encode_context = NULL;
+    output_context->avoid_negative_ts = AVFMT_AVOID_NEG_TS_MAKE_NON_NEGATIVE;
 
     // iterate over all cuts
     // skip last "cut", since we use it to store the cut that is currently composed
