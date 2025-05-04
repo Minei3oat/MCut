@@ -65,7 +65,7 @@ MediaFile::~MediaFile()
         munmap(stream_infos[i].infos, (long)stream_infos[i].infos_end - (long)stream_infos[i].infos);
     }
     free(stream_infos);
-    avformat_free_context(format_context);
+    avformat_close_input(&format_context);
 }
 
 
