@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
+// #define TRACE
+
 MediaFile::MediaFile(std::string filename) : filename(filename)
 {
     // get filesize
@@ -102,6 +104,7 @@ void MediaFile::build_cache()
         }
 
         // logging
+#ifdef TRACE
         AVStream* stream = format_context->streams[packet->stream_index];
         float timestamp = (packet->pts - start_pts) * stream->time_base.num * 1.0 / stream->time_base.den;
         std::string stream_type = "unknown";
@@ -118,7 +121,8 @@ void MediaFile::build_cache()
             default:
                 break;
         }
-        // printf("found %s packet of stream %d with duration %ld at %10lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", stream_type.c_str(), packet->stream_index, packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+        printf("found %s packet of stream %d with duration %ld at %10lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d\n", stream_type.c_str(), packet->stream_index, packet->duration, packet->pos, packet->pts, timestamp, packet->dts, packet->flags & AV_PKT_FLAG_KEY, packet->flags & AV_PKT_FLAG_CORRUPT);
+#endif
 
         // extend info area if needed
         stream_info_t* stream_info = stream_infos + packet->stream_index;
