@@ -759,6 +759,7 @@ void MainWindow::on_actionCut_Video_triggered()
         printf("cut_out: %zd (%ld); remux_end: %zd (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
 
         // calculate audio desync
+        int64_t margin = packet_length_dts;
         if (i > 0) {
             for (int j = 0; j < format_context->nb_streams; j++) {
                 if (cuts[i].media_file->is_audio_stream(j)) {
@@ -771,18 +772,21 @@ void MainWindow::on_actionCut_Video_triggered()
                         audio_desync[j] += info->duration;
                     }
                     printf("audio_desync for stream %d: %ld\n", j, audio_desync[j]);
+                    if (info->duration > margin) {
+                        margin = info->duration;
+                    }
                 }
             }
         }
 
         // seek to start
-        int64_t offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts);
+        int64_t offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts - margin);
         if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
             puts("Seek failed");
             return;
         }
         int64_t last_offset = offset;
-        int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts);
+        int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + margin);
         printf("Looping from %ld to %ld\n", offset, loop_end);
         printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
         while (last_offset <= loop_end) {
