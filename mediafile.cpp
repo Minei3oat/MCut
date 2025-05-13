@@ -199,12 +199,17 @@ void MediaFile::build_cache()
     current = stream_infos[video_stream->index].infos;
     max_bframes = 0;
     gop_size = 0;
+    max_difference = 0;
     int bframe_count = 0;
     int gop_count = 0;
     int64_t next_pts = current->pts;
     for (unsigned long i = 0; i < frame_count; next_pts = current->pts + current->duration, i++, current++) {
         // float timestamp = (current->pts - start_pts) * video_stream->time_base.num * 1.0 / video_stream->time_base.den;
         // printf("found frame %lu at %lu with pts %ld (%.3f) and dts %ld; is key: %d; is corrupt: %d; frame type: %c/%d\n", i, current->offset, current->pts, timestamp, current->dts, current->is_keyframe, current->is_corrupt, av_get_picture_type_char(current->frame_type), current->frame_type);
+
+        if (current->pts - current->dts > max_difference) {
+            max_difference = current->pts - current->dts;
+        }
 
         if (next_pts != current->pts) {
             printf("found pts gap: expected pts %ld while current has pts %ld\n", next_pts, current->pts);

@@ -695,6 +695,20 @@ void MainWindow::on_actionCut_Video_triggered()
     AVCodecContext* encode_context = NULL;
     output_context->avoid_negative_ts = AVFMT_AVOID_NEG_TS_MAKE_NON_NEGATIVE;
 
+    // determine max GOP size and needed difference between dts and pts
+    int64_t max_gop_size = 0;
+    for (int i = 0; i < num_cuts - 1; i++) {
+        if (cuts[i].media_file->get_max_difference() > next_video_pts) {
+            next_video_pts = cuts[i].media_file->get_max_difference();
+        }
+        if (max_gop_size < cuts[i].media_file->get_gop_size()) {
+            max_gop_size = cuts[i].media_file->get_gop_size();
+        }
+    }
+    printf("max GOP size: %ld\n", max_gop_size);
+    printf("first pts: %ld\n", next_video_pts);
+    output_context->max_interleave_delta += 2*max_gop_size*cuts[0].media_file->get_frame_info(0)->duration;
+
     // iterate over all cuts
     // skip last "cut", since we use it to store the cut that is currently composed
     for (int i = 0; i < num_cuts - 1; i++) {

@@ -46,6 +46,7 @@ public:
     int get_reorder_length() { return reorder_length; }
     int get_max_bframes() { return max_bframes; }
     int get_gop_size() { return gop_size; }
+    int get_max_difference() { return max_difference; }
 
     const std::string& get_filename() { return filename; }
     const packet_info_t* get_frame_info(ssize_t frame_index) const;
@@ -66,6 +67,7 @@ private:
     int max_bframes = 0;
     int gop_size = 0;
     ssize_t filesize = 0;
+    int64_t max_difference = 0;
 
     stream_info_t* stream_infos = NULL;
 
