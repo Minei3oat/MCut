@@ -248,10 +248,9 @@ int MainWindow::sprint_frametime(char* buffer, ssize_t index) {
 QString MainWindow::frame_to_string(MediaFile* media_file, ssize_t index) {
     char buffer[64] = "";
 
-    AVFrame* frame = media_file->get_frame(index);
     int current = sprint_frametime(buffer, index);
-    sprintf(buffer + current, " - %lu [%c/%c] (%ld)", index, av_get_picture_type_char(frame->pict_type),
-            av_get_picture_type_char((AVPictureType) media_file->get_frame_info(index)->frame_type), frame->pts);
+    const packet_info_t* info = media_file->get_frame_info(index);
+    sprintf(buffer + current, " - %lu [%c] (%ld)", index, av_get_picture_type_char((AVPictureType) info->frame_type), info->pts);
 
     return QString(buffer);
 }
