@@ -302,6 +302,8 @@ void MainWindow::on_add_cut_clicked() {
     // add new cut if last was used
     if (current_cut >= num_cuts) {
         num_cuts++;
+    } else {
+        change_cut();
     }
 
     // update number of cuts and total runtime
