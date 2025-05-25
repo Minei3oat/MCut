@@ -380,20 +380,24 @@ void MainWindow::render_frame()
         return;
     }
 
-    // convert frame to RGB
+    // convert frame to RGB and mind aspect ratio
     AVFrame *rgb = av_frame_alloc();
-    rgb->width = frame->width;
-    rgb->height = frame->height;
     rgb->format = AV_PIX_FMT_RGB24;
+    if (frame->sample_aspect_ratio.num > frame->sample_aspect_ratio.den) {
+        rgb->width = frame->width * frame->sample_aspect_ratio.num / frame->sample_aspect_ratio.den;
+        rgb->height = frame->height;
+    } else {
+        rgb->width = frame->width;
+        rgb->height = frame->height * frame->sample_aspect_ratio.den / frame->sample_aspect_ratio.num;
+    }
     av_frame_get_buffer(rgb, 4);
     struct SwsContext *sws_context = sws_getContext(frame->width, frame->height, (AVPixelFormat)frame->format, rgb->width, rgb->height, (AVPixelFormat)rgb->format, SWS_BILINEAR, NULL, NULL, NULL);
     sws_scale_frame(sws_context, rgb, frame);
 
     // render frame
     QImage image(rgb->data[0], rgb->width, rgb->height, QImage::Format_RGB888);
-    QPixmap pm(QPixmap::fromImage(image));
+    QPixmap pm(QPixmap::fromImage(image).scaled(ui->video_frame->width(), ui->video_frame->height(), Qt::KeepAspectRatio));
     ui->video_frame->setPixmap(pm);
-    ui->video_frame->setScaledContents(true);
     ui->video_frame->update();
 
     // update current position
