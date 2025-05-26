@@ -294,6 +294,8 @@ void MainWindow::on_add_cut_clicked() {
         return;
     }
 
+    printf("Cut %2zd: %8ld - %8ld --- %s\n", current_cut, cut_in, cut_out, media_files[current_media_file]->get_filename().c_str());
+
     cuts[current_cut].media_file = media_files[current_media_file];
     cuts[current_cut].cut_in = cut_in;
     cuts[current_cut].cut_out = cut_out;
