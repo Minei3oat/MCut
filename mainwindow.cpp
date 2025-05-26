@@ -824,48 +824,55 @@ void MainWindow::on_actionCut_Video_triggered()
         printf("Looping from %ld to %ld\n", offset, loop_end);
         printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
         while (last_offset <= loop_end) {
+            av_packet_unref(packet);
             if (av_read_frame(format_context, packet)) {
                 puts("failed to read packet");
                 break;
             }
 #ifdef TRACE
-                printf("Read packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
+            printf("Read packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
             last_offset = packet->pos;
+            if (index[packet->stream_index] != -1) {
+                continue;
+            }
+            if (packet->pts == AV_NOPTS_VALUE || packet->dts == AV_NOPTS_VALUE) {
+                printf("Read packet for stream %d without dts/pts (next pts: %ld)\n", packet->stream_index, next_pts[packet->stream_index] + pts_offset);
+                continue;
+            }
+
             if (cuts[i].media_file->is_audio_stream(packet->stream_index)) {
                 packet->pts += audio_desync[packet->stream_index];
                 packet->dts += audio_desync[packet->stream_index];
             }
+
             bool do_write_packet = false;
-            if (packet->pts == AV_NOPTS_VALUE || packet->dts == AV_NOPTS_VALUE) {
-                printf("Read packet for stream %d without dts/pts (next pts: %ld)\n", packet->stream_index, next_pts[packet->stream_index] + pts_offset);
-            } else if (index[packet->stream_index] != -1) {
-                if (packet->stream_index == video_stream->index) {
-                    do_write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
-                    if (packet->pts == remux_start_pts) {
-                        packet->dts += unused_dts;
-                    }
-                } else if (packet->pts - pts_offset >= next_pts[packet->stream_index]) {
-                    do_write_packet = packet->pts + packet->duration <= end_pts;
-                    if (!do_write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
-                        do_write_packet = packet->pts + packet->duration / 2 < end_pts;
-                    }
+            if (packet->stream_index == video_stream->index) {
+                do_write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
+                if (packet->pts == remux_start_pts) {
+                    packet->dts += unused_dts;
+                }
+            } else if (packet->pts - pts_offset >= next_pts[packet->stream_index]) {
+                do_write_packet = packet->pts + packet->duration <= end_pts;
+                if (!do_write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
+                    do_write_packet = packet->pts + packet->duration / 2 < end_pts;
                 }
             }
-            if (do_write_packet) {
-                packet->pts -= pts_offset;
-                packet->dts -= pts_offset;
-                next_pts[packet->stream_index] = packet->pts + packet->duration;
-                if (packet->stream_index == video_stream->index) {
-                    next_video_dts = packet->dts + packet_length_dts;
-                }
+            if (!do_write_packet) {
+                continue;
+            }
+
+            packet->pts -= pts_offset;
+            packet->dts -= pts_offset;
+            next_pts[packet->stream_index] = packet->pts + packet->duration;
+            if (packet->stream_index == video_stream->index) {
+                next_video_dts = packet->dts + packet_length_dts;
+            }
 #ifdef TRACE
-                printf("Writing packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
+            printf("Writing packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
-                packet->stream_index = index[packet->stream_index];
-                write_packet(output_context, packet);
-            }
-            av_packet_unref(packet);
+            packet->stream_index = index[packet->stream_index];
+            write_packet(output_context, packet);
         }
         av_packet_free(&packet);
         printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
