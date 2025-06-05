@@ -262,12 +262,12 @@ QString MainWindow::cut_to_string(ssize_t index) {
     for (int i = 0; i < index; i++) {
         total_frames_before += cuts[i].cut_out - cuts[i].cut_in + 1;
     }
-    ssize_t total_frames_after = total_frames_before + cut_out - cut_in + 1;
+    ssize_t total_frames_after = total_frames_before + cuts[index].cut_out - cuts[index].cut_in + 1;
     int current = sprintf(buffer, "[%zd] ", index);
     current += sprint_frametime(buffer + current, total_frames_before);
-    current += sprintf(buffer + current, " (%lu) [%c] - ", total_frames_before, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cut_in)->frame_type));
+    current += sprintf(buffer + current, " (%lu) [%c] - ", total_frames_before, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cuts[index].cut_in)->frame_type));
     current += sprint_frametime(buffer + current, total_frames_after);
-    current += sprintf(buffer + current, " (%lu) [%c]", total_frames_after, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cut_out)->frame_type));
+    current += sprintf(buffer + current, " (%lu) [%c]", total_frames_after, av_get_picture_type_char((AVPictureType) cuts[index].media_file->get_frame_info(cuts[index].cut_out)->frame_type));
 
     return QString(buffer);
 }
