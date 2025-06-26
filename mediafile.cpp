@@ -196,6 +196,18 @@ void MediaFile::build_cache()
         av_packet_unref(packet);
     }
 
+    // fix last packets
+    for (int i = frame_count-1; i >= 0 && !stream_infos[video_stream->index].infos[i].is_keyframe; i--) {
+        current = stream_infos[video_stream->index].infos + i;
+        if (current->frame_type == AV_PICTURE_TYPE_NONE) {
+            AVFrame* frame = get_frame(i);
+            if (frame) {
+                current->frame_type = frame->pict_type;
+                av_frame_free(&frame);
+            }
+        }
+    }
+
     current = stream_infos[video_stream->index].infos;
     max_bframes = 0;
     gop_size = 0;
