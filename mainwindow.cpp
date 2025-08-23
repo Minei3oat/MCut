@@ -775,6 +775,7 @@ void MainWindow::on_actionCut_Video_triggered()
         // calculate first pts
         if (i == 0) {
             next_pts[output_video_stream->index] -= unused_dts;
+            pts_offset += unused_dts;
             for (int j = 0; j < output_context->nb_streams; j++) {
                 next_pts[j] = next_pts[output_video_stream->index];
             }
