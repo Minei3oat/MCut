@@ -790,13 +790,7 @@ void MainWindow::on_actionCut_Video_triggered()
             next_video_dts = transcode_video_frames(cuts[i].media_file, cuts[i].cut_in, remux_start-1, output_context, output_video_stream, next_video_dts, pts_offset, encode_context);
         }
 
-        // flush encode context
-        if (encode_context != NULL) {
-            next_video_dts = flush_encode_context(&encode_context, output_context, output_video_stream->index, next_video_dts, frame_infos[remux_end].duration);
-        }
-
-        // remux frames between first i-frame and last p-frame
-        AVPacket *packet = av_packet_alloc();
+        // log cut operation
         int64_t packet_length_dts = frame_infos[cuts[i].cut_in].duration;
         long start_pts = frame_infos[cuts[i].cut_in].pts;
         long end_pts = frame_infos[cuts[i].cut_out].pts + packet_length_dts;
@@ -805,98 +799,108 @@ void MainWindow::on_actionCut_Video_triggered()
         printf("cut_in: %zd (%ld); remux_start: %zd (%ld)\n", cuts[i].cut_in, start_pts, remux_start, remux_start_pts);
         printf("cut_out: %zd (%ld); remux_end: %zd (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
 
-        // calculate audio desync
-        int64_t margin = packet_length_dts;
-        if (i > 0) {
-            for (int j = 0; j < format_context->nb_streams; j++) {
-                if (cuts[i].media_file->is_audio_stream(j)) {
-                    const packet_info_t* info = cuts[i].media_file->get_packet_info(j, start_pts);
-                    if (info == NULL || stream_map[j] == -1) {
-                        continue;
-                    }
-                    audio_desync[stream_map[j]] = next_pts[stream_map[j]] - (info->pts - pts_offset);
-                    if (audio_desync[stream_map[j]] < info->duration / -2) {
-                        audio_desync[stream_map[j]] += info->duration;
-                    }
-                    if (audio_desync[stream_map[j]] > info->duration / 2) {
-                        audio_desync[stream_map[j]] -= info->duration;
-                    }
-                    printf("audio_desync for stream %d: %ld\n", stream_map[j], audio_desync[stream_map[j]]);
-                    if (info->duration > margin) {
-                        margin = info->duration;
+        if (remux_start <= remux_end) {
+            // flush encode context
+            if (encode_context != NULL) {
+                next_video_dts = flush_encode_context(&encode_context, output_context, output_video_stream->index, next_video_dts, frame_infos[remux_end].duration);
+            }
+
+            // calculate audio desync
+            int64_t margin = packet_length_dts;
+            if (i > 0) {
+                for (int j = 0; j < format_context->nb_streams; j++) {
+                    if (cuts[i].media_file->is_audio_stream(j)) {
+                        const packet_info_t* info = cuts[i].media_file->get_packet_info(j, start_pts);
+                        if (info == NULL || stream_map[j] == -1) {
+                            continue;
+                        }
+                        audio_desync[stream_map[j]] = next_pts[stream_map[j]] - (info->pts - pts_offset);
+                        if (audio_desync[stream_map[j]] < info->duration / -2) {
+                            audio_desync[stream_map[j]] += info->duration;
+                        }
+                        if (audio_desync[stream_map[j]] > info->duration / 2) {
+                            audio_desync[stream_map[j]] -= info->duration;
+                        }
+                        printf("audio_desync for stream %d: %ld\n", stream_map[j], audio_desync[stream_map[j]]);
+                        if (info->duration > margin) {
+                            margin = info->duration;
+                        }
                     }
                 }
             }
-        }
 
-        for (int j = 0; j < output_context->nb_streams; j++) {
-            printf("next pts (stream %d): %ld\n", j, next_pts[j]);
-        }
-
-        // seek to start
-        int64_t offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts - margin);
-        if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-            puts("Seek failed");
-            return;
-        }
-        int64_t last_offset = offset;
-        int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + margin);
-        printf("Looping from %ld to %ld\n", offset, loop_end);
-        printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
-        while (last_offset <= loop_end) {
-            av_packet_unref(packet);
-            if (av_read_frame(format_context, packet)) {
-                puts("failed to read packet");
-                break;
+            for (int j = 0; j < output_context->nb_streams; j++) {
+                printf("next pts (stream %d): %ld\n", j, next_pts[j]);
             }
+
+            // seek to start
+            int64_t offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts - margin);
+            if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
+                puts("Seek failed");
+                return;
+            }
+
+            // remux frames between first i-frame and last p-frame
+            AVPacket *packet = av_packet_alloc();
+            int64_t last_offset = offset;
+            int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + margin);
+            printf("Looping from %ld to %ld\n", offset, loop_end);
+            printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
+            while (last_offset <= loop_end) {
+                av_packet_unref(packet);
+                if (av_read_frame(format_context, packet)) {
+                    puts("failed to read packet");
+                    break;
+                }
 #ifdef TRACE
-            printf("Read packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
+                printf("Read packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
-            last_offset = packet->pos;
+                last_offset = packet->pos;
 
-            if (stream_map[packet->stream_index] == -1) {
-                continue;
-            }
-            if (packet->pts == AV_NOPTS_VALUE || packet->dts == AV_NOPTS_VALUE) {
-                printf("Read packet for stream %d without dts/pts (next pts: %ld)\n", packet->stream_index, next_pts[stream_map[packet->stream_index]] + pts_offset);
-                continue;
-            }
-
-            if (cuts[i].media_file->is_audio_stream(packet->stream_index)) {
-                packet->pts += audio_desync[stream_map[packet->stream_index]];
-                packet->dts += audio_desync[stream_map[packet->stream_index]];
-            }
-            bool do_write_packet = false;
-            if (packet->stream_index == video_stream->index) {
-                do_write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
-                if (packet->pts == remux_start_pts) {
-                    packet->dts += unused_dts;
+                if (stream_map[packet->stream_index] == -1) {
+                    continue;
                 }
-            } else if (packet->pts - pts_offset >= next_pts[stream_map[packet->stream_index]]) {
-                do_write_packet = packet->pts + packet->duration <= end_pts;
-                if (!do_write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
-                    do_write_packet = packet->pts + packet->duration / 2 < end_pts;
+                if (packet->pts == AV_NOPTS_VALUE || packet->dts == AV_NOPTS_VALUE) {
+                    printf("Read packet for stream %d without dts/pts (next pts: %ld)\n", packet->stream_index, next_pts[stream_map[packet->stream_index]] + pts_offset);
+                    continue;
                 }
-            }
-            if (!do_write_packet) {
-                continue;
-            }
 
-            packet->pts -= pts_offset;
-            packet->dts -= pts_offset;
-            next_pts[stream_map[packet->stream_index]] = packet->pts + packet->duration;
-            if (packet->stream_index == video_stream->index) {
-                next_video_dts = packet->dts + packet_length_dts;
-            }
+                if (cuts[i].media_file->is_audio_stream(packet->stream_index)) {
+                    packet->pts += audio_desync[stream_map[packet->stream_index]];
+                    packet->dts += audio_desync[stream_map[packet->stream_index]];
+                }
+                bool do_write_packet = false;
+                if (packet->stream_index == video_stream->index) {
+                    do_write_packet = packet->pts >= remux_start_pts && packet->pts + packet->duration <= remux_end_pts;
+                    if (packet->pts == remux_start_pts) {
+                        packet->dts += unused_dts;
+                    }
+                } else if (packet->pts - pts_offset >= next_pts[stream_map[packet->stream_index]]) {
+                    do_write_packet = packet->pts + packet->duration <= end_pts;
+                    if (!do_write_packet && cuts[i].media_file->is_audio_stream(packet->stream_index) && i < num_cuts - 2) {
+                        do_write_packet = packet->pts + packet->duration / 2 < end_pts;
+                    }
+                }
+                if (!do_write_packet) {
+                    continue;
+                }
+
+                packet->pts -= pts_offset;
+                packet->dts -= pts_offset;
+                next_pts[stream_map[packet->stream_index]] = packet->pts + packet->duration;
+                if (packet->stream_index == video_stream->index) {
+                    next_video_dts = packet->dts + packet_length_dts;
+                }
 #ifdef TRACE
-            printf("Writing packet for stream %d with dts %ld, pts %ld and duration %ld\n", stream_map[packet->stream_index], packet->dts, packet->pts, packet->duration);
+                printf("Writing packet for stream %d with dts %ld, pts %ld and duration %ld\n", stream_map[packet->stream_index], packet->dts, packet->pts, packet->duration);
 #endif
-            packet->stream_index = stream_map[packet->stream_index];
-            write_packet(output_context, packet);
+                packet->stream_index = stream_map[packet->stream_index];
+                write_packet(output_context, packet);
+            }
+            av_packet_free(&packet);
+            printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
+            printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
         }
-        av_packet_free(&packet);
-        printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
-        printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
 
         if (remux_end < cuts[i].cut_out) {
             // transcode frames after last p-frame
