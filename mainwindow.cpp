@@ -304,6 +304,9 @@ void MainWindow::on_add_cut_clicked() {
     // add new cut if last was used
     if (current_cut >= num_cuts) {
         num_cuts++;
+
+        // copy cut over
+        cuts[current_cut] = cuts[current_cut - 1];
         ui->current_cut->setText(cut_to_string(current_cut));
     } else {
         change_cut();
@@ -337,9 +340,13 @@ void MainWindow::on_prev_cut_clicked() {
 
     // save current working cut
     if (current_cut == num_cuts - 1) {
-        cuts[current_cut].cut_in = cut_in;
-        cuts[current_cut].cut_out = cut_out;
-        cuts[current_cut].media_file = media_files[current_media_file];
+        // only update cut if data is consistent
+        ssize_t frame_count = media_files[current_media_file]->get_frame_count();
+        if (cut_in < frame_count && cut_out < frame_count) {
+            cuts[current_cut].cut_in = cut_in;
+            cuts[current_cut].cut_out = cut_out;
+            cuts[current_cut].media_file = media_files[current_media_file];
+        }
     }
 
     current_cut--;
