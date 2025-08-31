@@ -9,6 +9,7 @@
 
 // #define TRACE
 // #define WITHOUT_TELETEXT
+#define WITH_DVB_SUBTITLE
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -668,7 +669,9 @@ void MainWindow::on_actionCut_Video_triggered()
         // copy audio and DVB subtitles
 #ifdef WITHOUT_TELETEXT
         if (local_codec_parameters->codec_type == AVMEDIA_TYPE_AUDIO
+#ifdef WITH_DVB_SUBTITLE
             || (local_codec_parameters->codec_type == AVMEDIA_TYPE_SUBTITLE && local_codec_parameters->codec_id == AV_CODEC_ID_DVB_SUBTITLE)
+#endif
         ) {
 #endif
             AVStream* output_stream = avformat_new_stream(output_context, NULL);
