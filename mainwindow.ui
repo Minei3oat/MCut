@@ -93,6 +93,9 @@
     <property name="text">
      <string>CutOut</string>
     </property>
+    <property name="shortcut">
+     <string>.</string>
+    </property>
    </widget>
    <widget class="QPushButton" name="set_cut_in">
     <property name="geometry">
@@ -105,6 +108,9 @@
     </property>
     <property name="text">
      <string>CutIn</string>
+    </property>
+    <property name="shortcut">
+     <string>,</string>
     </property>
    </widget>
    <widget class="QLabel" name="cut_in_pos">
@@ -199,6 +205,9 @@
     <property name="text">
      <string>Go CutIn</string>
     </property>
+    <property name="shortcut">
+     <string>Home</string>
+    </property>
    </widget>
    <widget class="QPushButton" name="go_cut_out">
     <property name="geometry">
@@ -212,6 +221,9 @@
     <property name="text">
      <string>Go CutOut</string>
     </property>
+    <property name="shortcut">
+     <string>End</string>
+    </property>
    </widget>
    <widget class="QPushButton" name="prev_media_file">
     <property name="geometry">
@@ -224,6 +236,9 @@
     </property>
     <property name="text">
      <string>&lt;</string>
+    </property>
+    <property name="shortcut">
+     <string>W</string>
     </property>
     <property name="autoRepeatInterval">
      <number>10</number>
@@ -240,6 +255,9 @@
     </property>
     <property name="text">
      <string>&gt;</string>
+    </property>
+    <property name="shortcut">
+     <string>S</string>
     </property>
     <property name="autoRepeatInterval">
      <number>10</number>
@@ -270,6 +288,9 @@
     <property name="text">
      <string>Add Cut</string>
     </property>
+    <property name="shortcut">
+     <string>+</string>
+    </property>
     <property name="autoRepeatInterval">
      <number>10</number>
     </property>
@@ -286,6 +307,9 @@
     <property name="text">
      <string>&gt;</string>
     </property>
+    <property name="shortcut">
+     <string>D</string>
+    </property>
     <property name="autoRepeatInterval">
      <number>10</number>
     </property>
@@ -301,6 +325,9 @@
     </property>
     <property name="text">
      <string>&lt;</string>
+    </property>
+    <property name="shortcut">
+     <string>A</string>
     </property>
     <property name="autoRepeatInterval">
      <number>10</number>
@@ -420,7 +447,7 @@
     <string>&amp;Open Video</string>
    </property>
    <property name="shortcut">
-    <number>-1</number>
+    <string>Ctrl+O</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>
@@ -471,6 +498,9 @@
    </property>
    <property name="text">
     <string>&amp;Cut Video</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>
