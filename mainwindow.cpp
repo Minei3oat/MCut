@@ -28,6 +28,11 @@ MainWindow::~MainWindow()
 void MainWindow::change_media_file() {
     ui->current_media_file->setText(QString::fromStdString(media_files[current_media_file]->get_filename()));
     ui->position_slider->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
+
+    // enable/disable buttons
+    ui->prev_media_file->setEnabled(current_media_file > 0);
+    ui->next_media_file->setEnabled(current_media_file < num_media_files - 1);
+
     render_frame();
 }
 
@@ -328,6 +333,10 @@ void MainWindow::change_cut() {
     cut_in = cuts[current_cut].cut_in;
     cut_out = cuts[current_cut].cut_out;
 
+    // enable/disable buttons
+    ui->prev_cut->setEnabled(current_cut > 0);
+    ui->next_cut->setEnabled(current_cut < num_cuts - 1);
+
     // update resulting cut time
     ui->current_cut->setText(cut_to_string(current_cut));
     ui->cut_in_pos->setText(frame_to_string(cuts[current_cut].media_file, cut_in));
@@ -412,6 +421,14 @@ void MainWindow::render_frame()
 
     // update current position
     ui->current_pos->setText(frame_to_string(media_file, media_file->current_frame));
+
+    // update buttons
+    ui->next_frame->setEnabled(media_file->current_frame < media_file->get_frame_count() - 1);
+    ui->next_frame_3->setEnabled(media_file->current_frame < media_file->get_frame_count() - 12);
+    ui->next_frame_2->setEnabled(media_file->current_frame < media_file->get_frame_count() - 48);
+    ui->prev_frame->setEnabled(media_file->current_frame > 0);
+    ui->prev_frame_3->setEnabled(media_file->current_frame > 11);
+    ui->prev_frame_2->setEnabled(media_file->current_frame > 47);
 
     // cleanup
     sws_freeContext(sws_context);
