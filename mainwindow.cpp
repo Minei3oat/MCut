@@ -757,8 +757,8 @@ void MainWindow::on_actionCut_Video_triggered()
         printf("computed remux values: %ld/%ld\n", remux_start, remux_end);
 #endif
 
-        // fix small cuts
-        if (remux_start > cuts[i].cut_out) {
+        // fix small cuts / cuts at end of file
+        if (remux_start > cuts[i].cut_out || remux_start == -1) {
             remux_start = cuts[i].cut_out + 1;
             remux_end = cuts[i].cut_out;
             puts("fixed small cut");
@@ -794,7 +794,7 @@ void MainWindow::on_actionCut_Video_triggered()
         int64_t packet_length_dts = frame_infos[cuts[i].cut_in].duration;
         long start_pts = frame_infos[cuts[i].cut_in].pts;
         long end_pts = frame_infos[cuts[i].cut_out].pts + packet_length_dts;
-        long remux_start_pts = frame_infos[remux_start].pts;
+        long remux_start_pts = remux_start < cuts[i].media_file->get_frame_count() ? frame_infos[remux_start].pts : -1;
         long remux_end_pts = frame_infos[remux_end].pts + packet_length_dts;
         printf("cut_in: %zd (%ld); remux_start: %zd (%ld)\n", cuts[i].cut_in, start_pts, remux_start, remux_start_pts);
         printf("cut_out: %zd (%ld); remux_end: %zd (%ld)\n", cuts[i].cut_out, end_pts, remux_end, remux_end_pts);
