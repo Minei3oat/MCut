@@ -304,15 +304,13 @@ void MainWindow::on_add_cut_clicked() {
     // add new cut if last was used
     if (current_cut >= num_cuts) {
         num_cuts++;
+        ui->current_cut->setText(cut_to_string(current_cut));
     } else {
         change_cut();
     }
 
     // update number of cuts and total runtime
     refresh_total_length();
-
-    // show added cut time
-    ui->current_cut->setText(cut_to_string(current_cut - 1));
 }
 
 void MainWindow::change_cut() {
