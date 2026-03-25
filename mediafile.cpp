@@ -59,6 +59,9 @@ MediaFile::MediaFile(std::string filename) : filename(filename)
 
     // build cache
     build_cache();
+
+    // detect hardware decoding
+    detect_hardware_decoding();
 }
 
 MediaFile::~MediaFile()
@@ -271,16 +274,71 @@ void MediaFile::build_cache()
 }
 
 /**
- * Extract a frame by index
- * @param frame_index  The frame index to extract
- * @return The extracted frame or NULL on failure
+ * Detect if hardware decoding is possible
  */
-AVFrame* MediaFile::get_frame(ssize_t frame_index)
+void MediaFile::detect_hardware_decoding()
 {
     // get decoder
     const AVCodec *codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
     AVCodecContext *codec_context = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(codec_context, video_stream->codecpar);
+
+    // try hardware decoding
+    for (int i = 0;; i++) {
+        hw_config = avcodec_get_hw_config(codec, i);
+        if (hw_config == NULL) {
+            break;
+        }
+
+        // try to open device
+        AVBufferRef *hw_device_ctx = NULL;
+        if (av_hwdevice_ctx_create(&hw_device_ctx, hw_config->device_type, NULL, NULL, 0) < 0) {
+            continue;
+        }
+        codec_context->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+
+        if (avcodec_open2(codec_context, codec, NULL) < 0) {
+            av_buffer_unref(&hw_device_ctx);
+            continue;
+        }
+
+        AVFrame* frame = get_raw_frame(0);
+
+        // check decoding
+        if (!frame) {
+            puts("failed to decode a frame");
+            continue;
+        } else if (frame->format != hw_config->pix_fmt) {
+            printf("got wrong pixel format from %s: expected %s but got %s\n", av_hwdevice_get_type_name(hw_config->device_type), av_get_pix_fmt_name(hw_config->pix_fmt), av_get_pix_fmt_name((AVPixelFormat) frame->format));
+            av_frame_free(&frame);
+            continue;
+        }
+
+        av_frame_free(&frame);
+        printf("found hardware decoder of type %s\n", av_hwdevice_get_type_name(hw_config->device_type));
+        break;
+    }
+
+    // cleanup
+    avcodec_free_context(&codec_context);
+}
+
+/**
+ * Extract a raw frame by index
+ * @param frame_index  The frame index to extract
+ * @return The extracted raw frame or NULL on failure
+ */
+AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
+{
+    // get decoder
+    const AVCodec *codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    AVCodecContext *codec_context = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(codec_context, video_stream->codecpar);
+    AVBufferRef *hw_device_ctx = NULL;
+    if (hw_config) {
+        av_hwdevice_ctx_create(&hw_device_ctx, hw_config->device_type, NULL, NULL, 0);
+        codec_context->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+    }
     avcodec_open2(codec_context, codec, NULL);
 
     // find keyframe
@@ -352,8 +410,31 @@ AVFrame* MediaFile::get_frame(ssize_t frame_index)
     if (frame->pts != target_pts) {
         av_frame_free(&frame);
     }
+
     av_packet_free(&packet);
     avcodec_free_context(&codec_context);
+    return frame;
+}
+
+/**
+ * Extract a frame by index
+ * @param frame_index  The frame index to extract
+ * @return The extracted frame or NULL on failure
+ */
+AVFrame* MediaFile::get_frame(ssize_t frame_index)
+{
+    AVFrame* frame = get_raw_frame(frame_index);
+
+    // convert hardware decoded frame to actually usable frame
+    if (frame && hw_config && frame->format == hw_config->pix_fmt) {
+        AVFrame* soft_frame = av_frame_alloc();
+        if (av_hwframe_transfer_data(soft_frame, frame, 0) < 0) {
+            puts("Failed to transfer frame");
+        } else {
+            av_frame_free(&frame);
+            frame = soft_frame;
+        }
+    }
     return frame;
 }
 
