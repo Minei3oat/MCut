@@ -409,7 +409,10 @@ void MainWindow::render_frame()
     // convert frame to RGB and mind aspect ratio
     AVFrame *rgb = av_frame_alloc();
     rgb->format = AV_PIX_FMT_RGB24;
-    if (frame->sample_aspect_ratio.num > frame->sample_aspect_ratio.den) {
+    if (frame->sample_aspect_ratio.num == 0 || frame->sample_aspect_ratio.den == 0) {
+        rgb->width = frame->width;
+        rgb->height = frame->height;
+    } else if (frame->sample_aspect_ratio.num > frame->sample_aspect_ratio.den) {
         rgb->width = frame->width * frame->sample_aspect_ratio.num / frame->sample_aspect_ratio.den;
         rgb->height = frame->height;
     } else {
