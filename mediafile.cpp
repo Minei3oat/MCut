@@ -20,14 +20,19 @@ MediaFile::MediaFile(std::string filename) : filename(filename)
     format_context = avformat_alloc_context();
 
     // open file
-    int open_error = avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
-    if (open_error < 0) {
-        throw av_err2str(open_error);
+    int error = avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
+    if (error < 0) {
+        avformat_free_context(format_context);
+        throw std::runtime_error(av_err2str(error));
     }
     printf("Format %s, duration %ld us\n", format_context->iformat->long_name, format_context->duration);
 
     // find streams
-    avformat_find_stream_info(format_context,  NULL);
+    error = avformat_find_stream_info(format_context,  NULL);
+    if (error < 0) {
+        avformat_free_context(format_context);
+        throw std::runtime_error(av_err2str(error));
+    }
 
     // analyze streams
     for (int i = 0; i < format_context->nb_streams; i++)

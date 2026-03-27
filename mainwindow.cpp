@@ -54,7 +54,12 @@ void MainWindow::on_actionOpen_Video_triggered()
     }
 
     // load media file
-    media_files[num_media_files] = new MediaFile(filename);
+    try {
+        media_files[num_media_files] = new MediaFile(filename);
+    } catch(const std::runtime_error& error) {
+        printf("failed to open %s: %s\n", filename.c_str(), error.what());
+        return;
+    }
 
     ui->position_slider->setSliderPosition(0);
 
@@ -995,8 +1000,8 @@ void MainWindow::on_actionOpen_Project_triggered()
                 media_files[num_media_files] = new MediaFile(media_file_name);
                 file_mapping[file_count] = media_files[num_media_files];
                 num_media_files++;
-            } catch(char* error) {
-                printf("failed to open %s: %s\n", media_file_name.c_str(), error);
+            } catch(const std::runtime_error& error) {
+                printf("failed to open %s: %s\n", media_file_name.c_str(), error.what());
             }
             file_count++;
         }
