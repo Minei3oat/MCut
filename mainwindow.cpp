@@ -12,8 +12,6 @@
 #include <QJsonValue>
 
 // #define TRACE
-// #define WITHOUT_TELETEXT
-#define WITH_DVB_SUBTITLE
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -682,32 +680,21 @@ void MainWindow::on_actionCut_Video_triggered()
             continue;
         }
 
+        // check if codec is compatible with container
         AVStream* input_stream = format_context->streams[i];
-#ifdef WITHOUT_TELETEXT
-        AVCodecParameters *local_codec_parameters = input_stream->codecpar;
-        const AVCodec *local_codec = avcodec_find_decoder(local_codec_parameters->codec_id);
-        if (local_codec == NULL) {
-            printf("No codec found\n");
+        if (!avformat_query_codec(output_context->oformat, input_stream->codecpar->codec_id, FF_COMPLIANCE_NORMAL)) {
+            printf("Skipping incompatible stream %d\n", i);
             continue;
         }
-#endif
 
-        // copy audio and DVB subtitles
-#ifdef WITHOUT_TELETEXT
-        if (local_codec_parameters->codec_type == AVMEDIA_TYPE_AUDIO
-#ifdef WITH_DVB_SUBTITLE
-            || (local_codec_parameters->codec_type == AVMEDIA_TYPE_SUBTITLE && local_codec_parameters->codec_id == AV_CODEC_ID_DVB_SUBTITLE)
-#endif
-        ) {
-#endif
+        // copy audio and subtitles
+        if (input_stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO || input_stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
             AVStream* output_stream = avformat_new_stream(output_context, NULL);
             avcodec_parameters_copy(output_stream->codecpar, input_stream->codecpar);
             output_stream->codecpar->codec_tag = 0;
             output_stream->disposition = input_stream->disposition;
             av_dict_copy(&output_stream->metadata, input_stream->metadata, 0);
-#ifdef WITHOUT_TELETEXT
         }
-#endif
     }
 
     // set max interleave delta
