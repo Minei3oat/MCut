@@ -1,6 +1,7 @@
 #include "mediafile.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 #include <stdio.h>
 #include <sys/mman.h>
@@ -19,7 +20,10 @@ MediaFile::MediaFile(std::string filename) : filename(filename)
     format_context = avformat_alloc_context();
 
     // open file
-    avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
+    int open_error = avformat_open_input(&format_context, filename.c_str(), NULL, NULL);
+    if (open_error < 0) {
+        throw av_err2str(open_error);
+    }
     printf("Format %s, duration %ld us\n", format_context->iformat->long_name, format_context->duration);
 
     // find streams

@@ -6,6 +6,10 @@
 #include <sys/time.h>
 
 #include <QFileDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
 
 // #define TRACE
 // #define WITHOUT_TELETEXT
@@ -950,6 +954,140 @@ void MainWindow::on_actionCut_Video_triggered()
     // cleanup
     avio_closep(&output_context->pb);
     avformat_free_context(output_context);
+}
+
+
+void MainWindow::on_actionOpen_Project_triggered()
+{
+    // select file
+    QString filename = QFileDialog::getOpenFileName(this, "Open Video");
+    if (filename.isEmpty()) {
+        return;
+    }
+
+    // open json file
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    const QJsonObject project = QJsonDocument::fromJson(file.readAll()).object();
+
+    // clear current project
+    num_cuts = 0;
+    for (int i = 0; i < num_media_files; i++) {
+        delete media_files[i];
+        media_files[i] = NULL;
+    }
+    num_media_files = 0;
+    num_cuts = 0;
+
+    // import files
+    MediaFile** file_mapping = (MediaFile**) calloc(MAX_MEDIA_FILES, sizeof(MediaFile*));
+    size_t file_count = 0;
+    if (const QJsonValue v = project["files"]; v.isArray()) {
+        QJsonArray files = v.toArray();
+        for (const QJsonValue &file : files) {
+            if (!file.isString() || num_media_files >= MAX_MEDIA_FILES) {
+                continue;
+            }
+            std::string media_file_name = file.toString().toStdString();
+            try {
+                media_files[num_media_files] = new MediaFile(media_file_name);
+                file_mapping[file_count] = media_files[num_media_files];
+                num_media_files++;
+            } catch(char* error) {
+                printf("failed to open %s: %s\n", media_file_name.c_str(), error);
+            }
+            file_count++;
+        }
+    }
+    if (num_media_files == 0) {
+        return;
+    }
+
+    // import cuts
+    if (const QJsonValue v = project["cuts"]; v.isArray()) {
+        QJsonArray cuts = v.toArray();
+        for (const QJsonValue &cut : cuts) {
+            if (!cut.isObject() || num_cuts >= MAX_CUTS) {
+                continue;
+            }
+            QJsonObject cut_obj = cut.toObject();
+            this->cuts[num_cuts].cut_in = 0;
+            this->cuts[num_cuts].cut_out = 0;
+            this->cuts[num_cuts].media_file = media_files[0];
+            if (const QJsonValue v = cut_obj["cut_in"]; v.isDouble()) {
+                this->cuts[num_cuts].cut_in = v.toInteger();
+            }
+            if (const QJsonValue v = cut_obj["cut_out"]; v.isDouble()) {
+                this->cuts[num_cuts].cut_out = v.toInteger();
+            }
+            if (const QJsonValue v = cut_obj["media_file"]; v.isDouble()) {
+                size_t index = v.toInteger();
+                if (index >= 0 && index < file_count && file_mapping[index] != NULL) {
+                    this->cuts[num_cuts].media_file = file_mapping[index];
+                }
+            }
+            num_cuts++;
+        }
+    }
+
+    // import current cut
+    current_cut = num_cuts - 1;
+    if (const QJsonValue v = project["current_cut"]; v.isDouble()) {
+        current_cut = v.toInteger();
+        if (current_cut >= num_cuts) {
+            current_cut = num_cuts - 1;
+        } else if (current_cut < 0) {
+            current_cut = 0;
+        }
+    }
+
+    // prepare UI
+    change_cut();
+    render_frame();
+}
+
+
+void MainWindow::on_actionSave_Project_triggered()
+{
+    // select file
+    QString filename = QFileDialog::getSaveFileName(this, "Save Project");
+    if (filename.isEmpty()) {
+        return;
+    }
+
+    // create json
+    QJsonObject project;
+    QJsonArray files;
+    for (int i = 0; i < num_media_files; i++) {
+        files.append(QString::fromStdString(media_files[i]->get_filename()));
+    }
+    project["files"] = files;
+
+    QJsonArray cuts;
+    for (int i = 0; i < num_cuts; i++) {
+        QJsonObject cut;
+        cut["cut_in"] = (qint64) this->cuts[i].cut_in;
+        cut["cut_out"] = (qint64) this->cuts[i].cut_out;
+        for (int j = 0; j < num_media_files; j++) {
+            if (this->cuts[i].media_file == this->media_files[j]) {
+                cut["media_file"] = j;
+                break;
+            }
+        }
+        cuts.append(cut);
+    }
+    project["cuts"] = cuts;
+
+    project["current_cut"] = (qint64) current_cut;
+
+    // save json to file
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return;
+    }
+    file.write(QJsonDocument(project).toJson());
 }
 
 
