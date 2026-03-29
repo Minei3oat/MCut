@@ -203,17 +203,6 @@ void MainWindow::on_position_slider_sliderMoved(int position)
     }
 }
 
-void MainWindow::on_set_cut_in_clicked()
-{
-    if (current_media_file < 0 || current_media_file >= num_media_files) {
-        return;
-    }
-
-    cut_in = media_files[current_media_file]->current_frame;
-    ui->cut_in_pos->setText(ui->current_pos->text());
-    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
-}
-
 void MainWindow::on_jump_to_frame_returnPressed()
 {
     long jump = ui->jump_to_frame->text().toLong();
@@ -224,6 +213,16 @@ void MainWindow::on_jump_to_frame_returnPressed()
     render_frame();
 }
 
+void MainWindow::on_set_cut_in_clicked()
+{
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    cut_in = media_files[current_media_file]->current_frame;
+    ui->cut_in_pos->setText(ui->current_pos->text());
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
+}
 
 void MainWindow::on_set_cut_out_clicked()
 {
@@ -655,7 +654,7 @@ void MainWindow::on_actionCut_Video_triggered()
     }
 
     // select file
-    std::string filename = QFileDialog::getSaveFileName(this, "Open Video").toStdString();
+    std::string filename = QFileDialog::getSaveFileName(this, "Cut Video").toStdString();
     if (filename.empty()) {
         return;
     }

@@ -346,7 +346,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     int current = find_iframe_before(frame_index);
     // printf("starting decoding at frame %d\n", current);
 
-
     stream_info_t* stream_info = stream_infos + video_stream->index;
 
     // get some infos
