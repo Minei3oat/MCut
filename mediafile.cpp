@@ -352,12 +352,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     int64_t target_pts = stream_info->infos[frame_index].pts;
     int64_t target_dts = stream_info->infos[frame_index].dts;
     int64_t start_pts  = stream_info->infos[current].pts;
-    // puts("calling pframe after");
-    ssize_t pframe_after = find_pframe_after(frame_index);
-    if (pframe_after == -1) {
-        pframe_after = find_pframe_before(frame_index);
-    }
-    int64_t pframe_dts = stream_info->infos[pframe_after].dts;
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
@@ -383,13 +377,9 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
         if (packet->stream_index == video_stream->index && packet->pts >= start_pts) {
             // printf("found packet with dts/pts %ld/%ld\n", packet->dts, packet->pts);
             AVCodecParserContext* parser = av_stream_get_parser(video_stream);
-            if (parser && (packet->dts < pframe_dts || pframe_dts == target_dts) && parser->pict_type != AV_PICTURE_TYPE_I && parser->pict_type != AV_PICTURE_TYPE_P) {
-                // printf("Skipped %c frame\n", av_get_picture_type_char((AVPictureType) parser->pict_type));
-            } else {
-                avcodec_send_packet(codec_context, packet);
-                while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
-                    // printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
-                }
+            avcodec_send_packet(codec_context, packet);
+            while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
+                // printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
             }
         }
         av_packet_unref(packet);
