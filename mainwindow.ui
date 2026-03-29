@@ -15,6 +15,9 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPushButton" name="next_frame">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>580</x>
@@ -34,6 +37,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="prev_frame">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>519</x>
@@ -82,6 +88,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="set_cut_out">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>400</x>
@@ -98,6 +107,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="set_cut_in">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>400</x>
@@ -140,6 +152,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="prev_frame_2">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>400</x>
@@ -159,6 +174,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="next_frame_2">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>699</x>
@@ -178,6 +196,9 @@
     </property>
    </widget>
    <widget class="QSlider" name="position_slider">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>30</x>
@@ -194,6 +215,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="go_cut_in">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>670</x>
@@ -210,6 +234,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="go_cut_out">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>670</x>
@@ -226,6 +253,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="prev_media_file">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>30</x>
@@ -245,6 +275,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="next_media_file">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>120</x>
@@ -277,6 +310,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="add_cut">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>310</x>
@@ -296,6 +332,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="next_cut">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>120</x>
@@ -315,6 +354,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="prev_cut">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>30</x>
@@ -347,6 +389,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="remove_cut">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>220</x>
@@ -363,6 +408,9 @@
     </property>
    </widget>
    <widget class="QLineEdit" name="jump_to_frame">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>670</x>
@@ -373,6 +421,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="next_frame_3">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>640</x>
@@ -392,6 +443,9 @@
     </property>
    </widget>
    <widget class="QPushButton" name="prev_frame_3">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>460</x>
@@ -456,6 +510,9 @@
    </property>
   </action>
   <action name="actionSettings">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset theme="configure"/>
    </property>
@@ -470,6 +527,9 @@
    </property>
   </action>
   <action name="actionAbout">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset theme="help-about"/>
    </property>
@@ -495,6 +555,9 @@
    </property>
   </action>
   <action name="actionCut_Video">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset theme="edit-cut"/>
    </property>

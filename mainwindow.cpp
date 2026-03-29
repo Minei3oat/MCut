@@ -40,6 +40,7 @@ void MainWindow::change_media_file() {
     // enable/disable buttons
     ui->prev_media_file->setEnabled(current_media_file > 0);
     ui->next_media_file->setEnabled(current_media_file < num_media_files - 1);
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
 
     render_frame();
 }
@@ -66,6 +67,14 @@ void MainWindow::on_actionOpen_Video_triggered()
     }
 
     ui->position_slider->setSliderPosition(0);
+
+    // enable all relevant components
+    ui->position_slider->setEnabled(true);
+    ui->jump_to_frame->setEnabled(true);
+    ui->go_cut_in->setEnabled(true);
+    ui->go_cut_out->setEnabled(true);
+    ui->set_cut_in->setEnabled(true);
+    ui->set_cut_out->setEnabled(true);
 
     current_media_file = num_media_files;
     num_media_files++;
@@ -202,6 +211,7 @@ void MainWindow::on_set_cut_in_clicked()
 
     cut_in = media_files[current_media_file]->current_frame;
     ui->cut_in_pos->setText(ui->current_pos->text());
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
 }
 
 void MainWindow::on_jump_to_frame_returnPressed()
@@ -223,6 +233,7 @@ void MainWindow::on_set_cut_out_clicked()
 
     cut_out = media_files[current_media_file]->current_frame;
     ui->cut_out_pos->setText(ui->current_pos->text());
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
 }
 
 void MainWindow::on_go_cut_in_clicked()
@@ -326,10 +337,10 @@ void MainWindow::on_add_cut_clicked() {
 
         // copy cut over
         cuts[current_cut] = cuts[current_cut - 1];
-        ui->current_cut->setText(cut_to_string(current_cut));
-    } else {
-        change_cut();
     }
+
+    // update UI
+    change_cut();
 
     // update number of cuts and total runtime
     refresh_total_length();
@@ -349,6 +360,9 @@ void MainWindow::change_cut() {
     // enable/disable buttons
     ui->prev_cut->setEnabled(current_cut > 0);
     ui->next_cut->setEnabled(current_cut < num_cuts - 1);
+    ui->remove_cut->setEnabled(current_cut < num_cuts - 1);
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < cuts[current_cut].media_file->get_frame_count());
+    ui->actionCut_Video->setEnabled(num_cuts > 1);
 
     // update resulting cut time
     ui->current_cut->setText(cut_to_string(current_cut));
