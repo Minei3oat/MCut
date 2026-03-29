@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QProgressDialog>
 
@@ -82,6 +83,8 @@ private:
     AVCodecContext* get_video_encode_context(MediaFile* media_file, AVStream* output_stream);
     int64_t flush_encode_context(AVCodecContext** encode_context, AVFormatContext* output_context, int stream_id, int64_t dts, int64_t frame_duration);
     int64_t transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset, AVCodecContext* encode_context);
+
+    void keyReleaseEvent(QKeyEvent* event);
 
     Ui::MainWindow *ui;
 

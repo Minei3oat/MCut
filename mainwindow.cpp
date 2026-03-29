@@ -211,6 +211,9 @@ void MainWindow::on_jump_to_frame_returnPressed()
     }
     media_files[current_media_file]->current_frame = jump;
     render_frame();
+
+    // move focus to next button to enable button shortcuts
+    ui->next_frame->setFocus();
 }
 
 void MainWindow::on_set_cut_in_clicked()
@@ -1108,3 +1111,11 @@ void MainWindow::on_actionExit_triggered()
     exit(EXIT_SUCCESS);
 }
 
+void MainWindow::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_G) {
+        ui->jump_to_frame->setFocus();
+    } else {
+        QMainWindow::keyPressEvent(event);
+    }
+}
