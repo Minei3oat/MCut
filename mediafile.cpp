@@ -340,15 +340,7 @@ void MediaFile::detect_hardware_decoding()
 AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
 {
     // get decoder
-    const AVCodec *codec = avcodec_find_decoder(video_stream->codecpar->codec_id);
-    AVCodecContext *codec_context = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codec_context, video_stream->codecpar);
-    AVBufferRef *hw_device_ctx = NULL;
-    if (hw_config) {
-        av_hwdevice_ctx_create(&hw_device_ctx, hw_config->device_type, NULL, NULL, 0);
-        codec_context->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-    }
-    avcodec_open2(codec_context, codec, NULL);
+    AVCodecContext *codec_context = get_video_decode_context(true);
 
     // find keyframe
     int current = find_iframe_before(frame_index);
@@ -369,11 +361,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     int64_t pframe_dts = stream_info->infos[pframe_after].dts;
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
-
-    // set reorder buffer length
-    // this is needed, frames that cause an automatic resizing are lost (at least for h264)
-    codec_context->has_b_frames = max_bframes;
-    // printf("has bframes: %d\n", codec_context->has_b_frames);
 
     // preparations
     AVPacket *packet = av_packet_alloc();
@@ -633,6 +620,35 @@ ssize_t MediaFile::offset_after_pts(int64_t pts) const {
 }
 
 /**
+ * Create a decode context for the video stream of the given medie file. The returned codec context must be freed manually
+ * @return The codec context for decoding the video stream
+ */
+AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel) const
+{
+    // get decoder
+    const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
+    AVCodecContext *decode_context = avcodec_alloc_context3(decoder);
+    avcodec_parameters_to_context(decode_context, video_stream->codecpar);
+
+    // add hardware acceleration
+    if (hw_accel && hw_config) {
+        // try to open device
+        AVBufferRef *hw_device_ctx = NULL;
+        av_hwdevice_ctx_create(&hw_device_ctx, hw_config->device_type, NULL, NULL, 0);
+        decode_context->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+    }
+
+    // set reorder buffer length
+    // this is needed, frames that cause an automatic resizing are lost (at least for h264)
+    decode_context->has_b_frames = max_bframes;
+    // printf("has bframes: %d\n", codec_context->has_b_frames);
+
+    avcodec_open2(decode_context, decoder, NULL);
+
+    return decode_context;
+}
+
+/**
  * Check if the stream with the given index is an audio stream
  * @param stream_index The index of the stream to check
  * @returns True, if the stream exists and is an audio stream, False otherwise
@@ -644,4 +660,3 @@ bool MediaFile::is_audio_stream(int stream_index) const {
 
     return format_context->streams[stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO;
 }
-

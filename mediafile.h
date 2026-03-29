@@ -53,6 +53,7 @@ public:
     const packet_info_t* get_packet_info(int stream_index, int64_t pts) const;
     AVFormatContext* get_format_context() { return format_context; }
     AVStream* get_video_stream() { return video_stream; }
+    AVCodecContext* get_video_decode_context(bool hw_accel = false) const;
 
     bool is_audio_stream(int stream_index) const;
 

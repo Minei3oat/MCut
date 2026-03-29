@@ -474,23 +474,6 @@ int MainWindow::write_packet(AVFormatContext* output_context, AVPacket* packet) 
 }
 
 /**
- * Create a decode context for the video stream of the given medie file. The returned codec context must be freed manually
- * @param media_file The media file to get the video decoder for
- * @return The codec context for decoding the video stream
- */
-AVCodecContext* MainWindow::get_video_decode_context(MediaFile* media_file) {
-    AVStream* video_stream = media_file->get_video_stream();
-
-    // get decoder
-    const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
-    AVCodecContext *decode_context = avcodec_alloc_context3(decoder);
-    avcodec_parameters_to_context(decode_context, video_stream->codecpar);
-    avcodec_open2(decode_context, decoder, NULL);
-    decode_context->has_b_frames = media_file->get_reorder_length();
-    return decode_context;
-}
-
-/**
  * Create an encode context for the given medie file and output stream. The returned codec context must be freed manually
  * @param media_file The media file to get the video encode context for
  * @param output_stream The output stream to encode the video for
@@ -572,7 +555,7 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
     AVStream* video_stream = media_file->get_video_stream();
     const packet_info_t * frame_infos = media_file->get_frame_info(0);
 
-    AVCodecContext* decode_context = get_video_decode_context(media_file);
+    AVCodecContext* decode_context = media_file->get_video_decode_context();
 
     ssize_t iframe_before = media_file->find_iframe_before(cut_in);
     ssize_t current = iframe_before;
