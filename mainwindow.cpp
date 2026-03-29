@@ -20,6 +20,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->statusbar->addWidget(&total_length_label, 1);
     refresh_total_length();
+
+    // prepare export progress dialog
+    export_progress.setWindowTitle("Cut Video");
+    export_progress.setCancelButton(NULL);
+    export_progress.setWindowModality(Qt::ApplicationModal);
+    export_progress.reset();
 }
 
 MainWindow::~MainWindow()
@@ -460,6 +466,10 @@ int MainWindow::write_packet(AVFormatContext* output_context, AVPacket* packet) 
 #ifdef TRACE
     printf("Writing output packet for stream %d with dts %ld, pts %ld and duration %ld\n", packet->stream_index, packet->dts, packet->pts, packet->duration);
 #endif
+    if (output_context->streams[packet->stream_index]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+        export_progress.setValue(export_progress.value() + 1);
+        QApplication::processEvents();
+    }
     return av_interleaved_write_frame(output_context, packet);
 }
 
@@ -720,6 +730,16 @@ void MainWindow::on_actionCut_Video_triggered()
     printf("original - frame rate: %d/%d; time_base: %d/%d\n", video_stream->avg_frame_rate.num, video_stream->avg_frame_rate.den, video_stream->time_base.num, video_stream->time_base.den);
     printf("output   - frame rate: %d/%d; time_base: %d/%d\n", output_video_stream->avg_frame_rate.num, output_video_stream->avg_frame_rate.den, output_video_stream->time_base.num, output_video_stream->time_base.den);
 
+    // prepare progress dialog
+    size_t frame_count = 0;
+    for (int i = 0; i < num_cuts-1; i++) {
+        frame_count += cuts[i].cut_out - cuts[i].cut_in + 1;
+    }
+    export_progress.setValue(0);
+    export_progress.setRange(0, frame_count);
+    export_progress.show();
+    QApplication::processEvents();
+
     // preparations
     int64_t* next_pts = (int64_t*) calloc(output_context->nb_streams, sizeof(int64_t));
     int64_t* audio_desync = (int64_t*) calloc(output_context->nb_streams, sizeof(int64_t));
@@ -949,6 +969,7 @@ void MainWindow::on_actionCut_Video_triggered()
     // cleanup
     avio_closep(&output_context->pb);
     avformat_free_context(output_context);
+    export_progress.setValue(frame_count);
 }
 
 

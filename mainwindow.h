@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QLabel>
+#include <QProgressDialog>
+
 #include "mediafile.h"
 
 #define MAX_MEDIA_FILES 32
@@ -95,5 +97,6 @@ private:
     ssize_t cut_out = 0;
 
     QLabel total_length_label;
+    QProgressDialog export_progress;
 };
 #endif // MAINWINDOW_H
