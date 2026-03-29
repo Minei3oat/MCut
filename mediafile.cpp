@@ -9,7 +9,7 @@
 
 // #define TRACE
 
-MediaFile::MediaFile(std::string filename) : filename(filename)
+MediaFile::MediaFile(const std::string& filename) : filename(filename)
 {
     // get filesize
     struct stat info;

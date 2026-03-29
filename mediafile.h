@@ -29,7 +29,7 @@ typedef struct {
 class MediaFile
 {
 public:
-    MediaFile(std::string filename);
+    MediaFile(const std::string& filename);
     ~MediaFile();
 
     AVFrame* get_frame(ssize_t frame_index);
@@ -42,17 +42,17 @@ public:
     ssize_t offset_before_pts(int64_t pts) const;
     ssize_t offset_after_pts(int64_t pts) const;
 
-    ssize_t get_frame_count() { return !stream_infos ? NULL : stream_infos[video_stream->index].num_infos; }
-    int get_reorder_length() { return reorder_length; }
-    int get_max_bframes() { return max_bframes; }
-    int get_gop_size() { return gop_size; }
-    int get_max_difference() { return max_difference; }
+    ssize_t get_frame_count() const { return stream_infos[video_stream->index].num_infos; }
+    int get_reorder_length() const { return reorder_length; }
+    int get_max_bframes() const { return max_bframes; }
+    int get_gop_size() const { return gop_size; }
+    int get_max_difference() const { return max_difference; }
 
-    const std::string& get_filename() { return filename; }
+    const std::string& get_filename() const { return filename; }
     const packet_info_t* get_frame_info(ssize_t frame_index) const;
     const packet_info_t* get_packet_info(int stream_index, int64_t pts) const;
+    const AVStream* get_video_stream() const { return video_stream; }
     AVFormatContext* get_format_context() { return format_context; }
-    AVStream* get_video_stream() { return video_stream; }
     AVCodecContext* get_video_decode_context(bool hw_accel = false) const;
 
     bool is_audio_stream(int stream_index) const;

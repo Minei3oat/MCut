@@ -480,7 +480,7 @@ int MainWindow::write_packet(AVFormatContext* output_context, AVPacket* packet) 
  * @return The codec context for encoding the video stream
  */
 AVCodecContext* MainWindow::get_video_encode_context(MediaFile* media_file, AVStream* output_stream) {
-    AVStream* video_stream = media_file->get_video_stream();
+    const AVStream* video_stream = media_file->get_video_stream();
     const packet_info_t* frame_infos = media_file->get_frame_info(0);
 
     // get encoder
@@ -552,7 +552,7 @@ int64_t MainWindow::flush_encode_context(AVCodecContext** encode_context, AVForm
  */
 int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset, AVCodecContext* encode_context) {
     AVFormatContext* format_context = media_file->get_format_context();
-    AVStream* video_stream = media_file->get_video_stream();
+    const AVStream* video_stream = media_file->get_video_stream();
     const packet_info_t * frame_infos = media_file->get_frame_info(0);
 
     AVCodecContext* decode_context = media_file->get_video_decode_context();
@@ -652,7 +652,7 @@ void MainWindow::on_actionCut_Video_triggered()
 
     // get infos
     AVFormatContext* format_context = cuts[0].media_file->get_format_context();
-    AVStream* video_stream = cuts[0].media_file->get_video_stream();
+    const AVStream* video_stream = cuts[0].media_file->get_video_stream();
     const packet_info_t * frame_infos = cuts[0].media_file->get_frame_info(0);
 
     // add streams
@@ -749,7 +749,7 @@ void MainWindow::on_actionCut_Video_triggered()
         puts("================================");
         // get infos
         AVFormatContext* format_context = cuts[i].media_file->get_format_context();
-        AVStream* video_stream = cuts[i].media_file->get_video_stream();
+        const AVStream* video_stream = cuts[i].media_file->get_video_stream();
         const packet_info_t * frame_infos = cuts[i].media_file->get_frame_info(0);
 
         // create local stream map
