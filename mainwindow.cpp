@@ -886,7 +886,7 @@ void MainWindow::on_actionCut_Video_triggered()
             // remux frames between first i-frame and last p-frame
             AVPacket *packet = av_packet_alloc();
             int64_t last_offset = offset;
-            int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + margin);
+            int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + packet_length_dts * cuts[i].media_file->get_gop_size());
             printf("Looping from %ld to %ld\n", offset, loop_end);
             printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
             while (last_offset <= loop_end) {
