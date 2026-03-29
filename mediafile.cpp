@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <QApplication>
+#include <QProgressDialog>
+
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -105,12 +108,28 @@ void MediaFile::build_cache()
     // preparations
     AVPacket *packet = av_packet_alloc();
 
+    // prepare progress dialog
+    QProgressDialog progress(NULL, Qt::WindowFlags(Qt::Dialog));
+    progress.setWindowTitle("Open Video");
+    progress.setMinimumDuration(0);
+    progress.setWindowModality(Qt::ApplicationModal);
+    progress.setValue(0);
+    progress.setRange(0, filesize >> 10);
+    progress.setLabelText("Building Cache");
+    progress.setCancelButton(NULL);
+    progress.show();
+    QApplication::processEvents();
+
     // find all frames
     reorder_length = 0;
     int frame_count = 0;
     packet_info_t *current = stream_infos[video_stream->index].infos;
     long start_pts = LONG_MIN;
     while (av_read_frame(format_context, packet) == 0) {
+        if (packet->pos != -1 && packet->pos >> 10 > progress.value()) {
+            progress.setValue(packet->pos >> 10);
+            QApplication::processEvents();
+        }
         if (packet->flags & AV_PKT_FLAG_CORRUPT && frame_count) {
             printf("found corrupt packet in stream %d at pts %ld\n", packet->stream_index, packet->pts);
         }
@@ -279,7 +298,9 @@ void MediaFile::build_cache()
         }
     }
 
+    // cleanup
     av_packet_free(&packet);
+    progress.setValue(filesize >> 10);
 }
 
 /**
