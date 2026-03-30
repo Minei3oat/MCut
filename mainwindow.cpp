@@ -348,6 +348,22 @@ void MainWindow::on_add_cut_clicked() {
     refresh_total_length();
 }
 
+void MainWindow::on_delete_cut_clicked() {
+    if (current_cut < 0 || current_cut >= num_cuts) {
+        return;
+    }
+
+    // remove cut
+    memmove(cuts + current_cut, cuts + current_cut + 1, sizeof(*cuts) * (num_cuts - current_cut - 1));
+    num_cuts--;
+
+    // update UI
+    change_cut();
+
+    // update number of cuts and total runtime
+    refresh_total_length();
+}
+
 void MainWindow::change_cut() {
     for (int i = 0; i < num_media_files; i++) {
         if (media_files[i] == cuts[current_cut].media_file) {
@@ -362,7 +378,7 @@ void MainWindow::change_cut() {
     // enable/disable buttons
     ui->prev_cut->setEnabled(current_cut > 0);
     ui->next_cut->setEnabled(current_cut < num_cuts - 1);
-    ui->remove_cut->setEnabled(current_cut < num_cuts - 1);
+    ui->delete_cut->setEnabled(current_cut < num_cuts - 1);
     ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < cuts[current_cut].media_file->get_frame_count());
     ui->actionCut_Video->setEnabled(num_cuts > 1);
 

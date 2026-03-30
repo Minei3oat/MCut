@@ -388,7 +388,7 @@
      <string/>
     </property>
    </widget>
-   <widget class="QPushButton" name="remove_cut">
+   <widget class="QPushButton" name="delete_cut">
     <property name="enabled">
      <bool>false</bool>
     </property>

@@ -64,7 +64,7 @@ private slots:
     void on_go_cut_out_clicked();
 
     void on_add_cut_clicked();
-    void on_delete_cut_clicked() {}
+    void on_delete_cut_clicked();
 
     void on_position_slider_sliderMoved(int position);
     void on_jump_to_frame_returnPressed();
