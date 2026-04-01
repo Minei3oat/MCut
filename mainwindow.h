@@ -47,6 +47,8 @@ private slots:
     void on_actionSave_Project_As_triggered();
     void on_actionExit_triggered();
 
+    void on_actionAbout_triggered();
+
     void on_prev_media_file_clicked();
     void on_next_media_file_clicked();
 

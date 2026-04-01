@@ -1249,6 +1249,25 @@ void MainWindow::on_actionExit_triggered()
     close();
 }
 
+void MainWindow::on_actionAbout_triggered()
+{
+    QMessageBox about(this);
+    about.setWindowTitle("About MCut");
+    about.setTextFormat(Qt::TextFormat::MarkdownText);
+    about.setText(
+        "MCut - Very simple, lossless & frame accurate video editor\n\n"
+        "(c) 2023-2026 Minei3oat\n\n"
+        "[https://github.com/Minei3oat/MCut](https://github.com/Minei3oat/MCut)\n\n"
+        "### Credits\n\n"
+        "##### FFmpeg\n\n"
+        "This software uses libraries from the [FFmpeg project](https://ffmpeg.org/) under the [LGPLv2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)\n\n"
+        "##### Qt\n\n"
+        "This software uses libraries from the [Qt Framework](https://www.qt.io/development/qt-framework) under the [GNU LGPL version 3](https://www.gnu.org/licenses/lgpl-3.0.en.html)"
+    );
+    about.setStandardButtons(QMessageBox::Close);
+    about.exec();
+}
+
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
     switch (event->key()) {
