@@ -1164,6 +1164,7 @@ void MainWindow::on_actionOpen_Project_triggered()
         }
     }
     if (num_media_files == 0) {
+        free(file_mapping);
         return;
     }
 
@@ -1193,6 +1194,9 @@ void MainWindow::on_actionOpen_Project_triggered()
             num_cuts++;
         }
     }
+
+    // cleanup
+    free(file_mapping);
 
     // import current cut
     current_cut = num_cuts - 1;
