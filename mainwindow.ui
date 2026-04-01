@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>MCut</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPushButton" name="next_frame">
@@ -556,7 +556,7 @@
     <string>&amp;Quit</string>
    </property>
    <property name="shortcut">
-    <number>-1</number>
+    <string>Ctrl+Q</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::QuitRole</enum>
@@ -581,7 +581,7 @@
   </action>
   <action name="actionOpen_Project">
    <property name="icon">
-    <iconset theme="folder-open"/>
+    <iconset theme="QIcon::ThemeIcon::DocumentOpen"/>
    </property>
    <property name="text">
     <string>Open &amp;Project</string>

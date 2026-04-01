@@ -24,7 +24,7 @@ For optimal usage, start MCut from command line, since found errors are logged t
 
 # Disclaimer
 
-I wrote MCut for personl usage. MCut is only tested with MPEG transport streams as input and output container format and Matroska as output container format. All other container formats may or may not work.
+I wrote MCut for personal usage. MCut is only tested with MPEG transport streams as input and output container format and Matroska as output container format. All other container formats may or may not work.
 
 # License
 

@@ -39,7 +39,7 @@ else()
     )
 endif()
 
-target_link_libraries(MCut PRIVATE Qt${QT_VERSION_MAJOR}::Widgets PkgConfig::LIBAV)
+target_link_libraries(MCut PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Widgets PkgConfig::LIBAV)
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(MCut)
