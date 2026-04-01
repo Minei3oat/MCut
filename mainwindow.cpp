@@ -36,6 +36,7 @@ MainWindow::~MainWindow()
 void MainWindow::change_media_file() {
     ui->current_media_file->setText(QString::fromStdString(media_files[current_media_file]->get_filename()));
     ui->position_slider->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
+    ui->jump_to_frame->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
 
     // enable/disable buttons
     ui->prev_media_file->setEnabled(current_media_file > 0);
@@ -205,7 +206,7 @@ void MainWindow::on_position_slider_sliderMoved(int position)
 
 void MainWindow::on_jump_to_frame_returnPressed()
 {
-    long jump = ui->jump_to_frame->text().toLong();
+    long jump = ui->jump_to_frame->value();
     if (jump < 0 || jump >= media_files[current_media_file]->get_frame_count()) {
         return;
     }
