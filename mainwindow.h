@@ -74,6 +74,8 @@ private:
     void change_media_file();
     void change_cut();
     void refresh_total_length();
+    bool can_close();
+    void close_project();
 
     int sprint_frametime(char* buffer, ssize_t index);
     QString frame_to_string(MediaFile* media_file, ssize_t index);
@@ -85,6 +87,7 @@ private:
     int64_t transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset, AVCodecContext* encode_context);
 
     void keyReleaseEvent(QKeyEvent* event);
+    void closeEvent(QCloseEvent* event);
 
     Ui::MainWindow *ui;
 
@@ -97,6 +100,7 @@ private:
     ssize_t num_cuts = 1;
     ssize_t cut_in = 0;
     ssize_t cut_out = 0;
+    bool unsaved = false;
 
     QLabel total_length_label;
     QProgressDialog export_progress;

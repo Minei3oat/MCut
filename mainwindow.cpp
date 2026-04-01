@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QMessageBox>
 
 // #define TRACE
 
@@ -317,6 +318,79 @@ void MainWindow::refresh_total_length() {
     total_length_label.setText(QString(buffer));
 }
 
+bool MainWindow::can_close()
+{
+    while (unsaved) {
+        QMessageBox ask(this);
+        ask.setWindowTitle("Close Projekt — MCut");
+        ask.setIcon(QMessageBox::Warning);
+        ask.setText("The project has been modified. Do you want to save your changes or discard them?");
+        ask.setStandardButtons(QMessageBox::Save | QMessageBox::Discard |QMessageBox::Cancel);
+        switch (ask.exec()) {
+            case QMessageBox::Cancel:
+                return false;
+            case QMessageBox::Save:
+                on_actionSave_Project_triggered();
+                break;
+            case QMessageBox::Discard:
+                return true;
+            default:
+                break;
+        }
+    }
+    return true;
+}
+
+void MainWindow::close_project()
+{
+    // close media files
+    for (int i = 0; i < num_media_files; i++) {
+        delete media_files[i];
+        media_files[i] = NULL;
+    }
+    current_media_file = -1;
+    num_media_files = 0;
+
+    // drop cuts
+    memset(cuts, 0, sizeof(*cuts));
+    current_cut = 0;
+    num_cuts = 1;
+
+    // reset state
+    unsaved = false;
+
+    // reset UI
+    ui->next_frame->setEnabled(false);
+    ui->next_frame_3->setEnabled(false);
+    ui->next_frame_2->setEnabled(false);
+    ui->prev_frame->setEnabled(false);
+    ui->prev_frame_3->setEnabled(false);
+    ui->prev_frame_2->setEnabled(false);
+    ui->position_slider->setEnabled(false);
+    ui->jump_to_frame->setEnabled(false);
+    ui->go_cut_in->setEnabled(false);
+    ui->go_cut_out->setEnabled(false);
+    ui->set_cut_in->setEnabled(false);
+    ui->set_cut_out->setEnabled(false);
+    ui->prev_media_file->setEnabled(false);
+    ui->next_media_file->setEnabled(false);
+    ui->prev_cut->setEnabled(false);
+    ui->next_cut->setEnabled(false);
+    ui->add_cut->setEnabled(false);
+    ui->delete_cut->setEnabled(false);
+    ui->video_frame->clear();
+    ui->position_slider->setMaximum(1);
+    ui->jump_to_frame->setMaximum(1);
+    ui->position_slider->setValue(0);
+    ui->jump_to_frame->setValue(0);
+    ui->current_media_file->setText("");
+    ui->current_cut->setText("");
+    ui->cut_in_pos->setText("");
+    ui->cut_out_pos->setText("");
+    ui->current_pos->setText("");
+    refresh_total_length();
+}
+
 void MainWindow::on_add_cut_clicked() {
     if (current_media_file < 0 || current_media_file >= num_media_files || num_cuts >= MAX_CUTS || cut_in > cut_out) {
         return;
@@ -333,6 +407,9 @@ void MainWindow::on_add_cut_clicked() {
     cuts[current_cut].cut_in = cut_in;
     cuts[current_cut].cut_out = cut_out;
     current_cut++;
+
+    // update unsaved
+    unsaved = true;
 
     // add new cut if last was used
     if (current_cut >= num_cuts) {
@@ -357,6 +434,9 @@ void MainWindow::on_delete_cut_clicked() {
     // remove cut
     memmove(cuts + current_cut, cuts + current_cut + 1, sizeof(*cuts) * (num_cuts - current_cut - 1));
     num_cuts--;
+
+    // update unsaved
+    unsaved = true;
 
     // update UI
     change_cut();
@@ -991,6 +1071,11 @@ void MainWindow::on_actionCut_Video_triggered()
 
 void MainWindow::on_actionOpen_Project_triggered()
 {
+    // save current project
+    if (!can_close()) {
+        return;
+    }
+
     // select file
     QString filename = QFileDialog::getOpenFileName(this, "Open Video");
     if (filename.isEmpty()) {
@@ -1004,14 +1089,8 @@ void MainWindow::on_actionOpen_Project_triggered()
     }
     const QJsonObject project = QJsonDocument::fromJson(file.readAll()).object();
 
-    // clear current project
-    num_cuts = 0;
-    for (int i = 0; i < num_media_files; i++) {
-        delete media_files[i];
-        media_files[i] = NULL;
-    }
-    num_media_files = 0;
-    num_cuts = 0;
+    // close current project
+    close_project();
 
     // import files
     MediaFile** file_mapping = (MediaFile**) calloc(MAX_MEDIA_FILES, sizeof(MediaFile*));
@@ -1120,12 +1199,14 @@ void MainWindow::on_actionSave_Project_triggered()
         return;
     }
     file.write(QJsonDocument(project).toJson());
+
+    unsaved = false;
 }
 
 
 void MainWindow::on_actionExit_triggered()
 {
-    exit(EXIT_SUCCESS);
+    close();
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
@@ -1134,5 +1215,14 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
         ui->jump_to_frame->setFocus();
     } else {
         QMainWindow::keyPressEvent(event);
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    if (can_close()) {
+        event->accept();
+    } else {
+        event->ignore();
     }
 }
