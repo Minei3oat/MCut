@@ -1113,6 +1113,13 @@ void MainWindow::on_actionCut_Video_triggered()
 }
 
 
+void MainWindow::on_actionNew_Project_triggered()
+{
+    if (can_close()) {
+        close_project();
+    }
+}
+
 void MainWindow::on_actionOpen_Project_triggered()
 {
     // save current project
