@@ -25,3 +25,11 @@ For optimal usage, start MCut from command line, since found errors are logged t
 # Disclaimer
 
 I wrote MCut for personl usage. MCut is only tested with MPEG transport streams as input and output container format and Matroska as output container format. All other container formats may or may not work.
+
+# License
+
+MCut is licensed under the [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.html) or later.
+
+This software uses libraries from the [FFmpeg project](https://ffmpeg.org/) under the [LGPLv2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
+
+This software uses libraries from the [Qt Framework](https://www.qt.io/development/qt-framework) under the [GNU LGPL version 3](https://www.gnu.org/licenses/lgpl-3.0.en.html)

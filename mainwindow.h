@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2026 Minei3oat
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 

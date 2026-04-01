@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023-2026 Minei3oat
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 
@@ -1258,6 +1262,7 @@ void MainWindow::on_actionAbout_triggered()
         "MCut - Very simple, lossless & frame accurate video editor\n\n"
         "(c) 2023-2026 Minei3oat\n\n"
         "[https://github.com/Minei3oat/MCut](https://github.com/Minei3oat/MCut)\n\n"
+        "License: [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.html) or later\n\n"
         "### Credits\n\n"
         "##### FFmpeg\n\n"
         "This software uses libraries from the [FFmpeg project](https://ffmpeg.org/) under the [LGPLv2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)\n\n"
