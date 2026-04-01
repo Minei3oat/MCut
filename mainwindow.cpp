@@ -2,7 +2,6 @@
 #include "./ui_mainwindow.h"
 
 #include <stdio.h>
-#include <sys/mman.h>
 #include <sys/time.h>
 
 #include <QFileDialog>
@@ -1237,7 +1236,6 @@ void MainWindow::on_actionSave_Project_As_triggered()
     save_project(filename);
 }
 
-
 void MainWindow::on_actionExit_triggered()
 {
     close();
@@ -1245,10 +1243,13 @@ void MainWindow::on_actionExit_triggered()
 
 void MainWindow::keyReleaseEvent(QKeyEvent* event)
 {
-    if (event->key() == Qt::Key_G) {
-        ui->jump_to_frame->setFocus();
-    } else {
-        QMainWindow::keyPressEvent(event);
+    switch (event->key()) {
+        case Qt::Key_G:
+            ui->jump_to_frame->setFocus();
+            break;
+        default:
+            QMainWindow::keyPressEvent(event);
+            break;
     }
 }
 
