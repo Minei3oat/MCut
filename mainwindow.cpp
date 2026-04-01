@@ -358,6 +358,7 @@ void MainWindow::close_project()
 
     // reset state
     unsaved = false;
+    filename = "";
 
     // reset UI
     ui->next_frame->setEnabled(false);
@@ -389,6 +390,49 @@ void MainWindow::close_project()
     ui->cut_out_pos->setText("");
     ui->current_pos->setText("");
     refresh_total_length();
+}
+
+void MainWindow::save_project(QString filename)
+{
+    if (filename.isEmpty()) {
+        return;
+    }
+
+    // create json
+    QJsonObject project;
+    QJsonArray files;
+    for (int i = 0; i < num_media_files; i++) {
+        files.append(QString::fromStdString(media_files[i]->get_filename()));
+    }
+    project["files"] = files;
+
+    QJsonArray cuts;
+    for (int i = 0; i < num_cuts; i++) {
+        QJsonObject cut;
+        cut["cut_in"] = (qint64) this->cuts[i].cut_in;
+        cut["cut_out"] = (qint64) this->cuts[i].cut_out;
+        for (int j = 0; j < num_media_files; j++) {
+            if (this->cuts[i].media_file == this->media_files[j]) {
+                cut["media_file"] = j;
+                break;
+            }
+        }
+        cuts.append(cut);
+    }
+    project["cuts"] = cuts;
+
+    project["current_cut"] = (qint64) current_cut;
+
+    // save json to file
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return;
+    }
+    file.write(QJsonDocument(project).toJson());
+
+    // update state
+    unsaved = false;
+    this->filename = filename;
 }
 
 void MainWindow::on_add_cut_clicked() {
@@ -1154,6 +1198,8 @@ void MainWindow::on_actionOpen_Project_triggered()
         }
     }
 
+    this->filename = filename;
+
     // prepare UI
     change_cut();
     render_frame();
@@ -1162,45 +1208,22 @@ void MainWindow::on_actionOpen_Project_triggered()
 
 void MainWindow::on_actionSave_Project_triggered()
 {
-    // select file
-    QString filename = QFileDialog::getSaveFileName(this, "Save Project");
+    // select file if not present
     if (filename.isEmpty()) {
-        return;
+        filename = QFileDialog::getSaveFileName(this, "Save Project");
     }
 
-    // create json
-    QJsonObject project;
-    QJsonArray files;
-    for (int i = 0; i < num_media_files; i++) {
-        files.append(QString::fromStdString(media_files[i]->get_filename()));
-    }
-    project["files"] = files;
+    // save project
+    save_project(filename);
+}
 
-    QJsonArray cuts;
-    for (int i = 0; i < num_cuts; i++) {
-        QJsonObject cut;
-        cut["cut_in"] = (qint64) this->cuts[i].cut_in;
-        cut["cut_out"] = (qint64) this->cuts[i].cut_out;
-        for (int j = 0; j < num_media_files; j++) {
-            if (this->cuts[i].media_file == this->media_files[j]) {
-                cut["media_file"] = j;
-                break;
-            }
-        }
-        cuts.append(cut);
-    }
-    project["cuts"] = cuts;
+void MainWindow::on_actionSave_Project_As_triggered()
+{
+    // select new file
+    QString filename = QFileDialog::getSaveFileName(this, "Save Project As");
 
-    project["current_cut"] = (qint64) current_cut;
-
-    // save json to file
-    QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly)) {
-        return;
-    }
-    file.write(QJsonDocument(project).toJson());
-
-    unsaved = false;
+    // save project
+    save_project(filename);
 }
 
 

@@ -43,6 +43,7 @@ private slots:
     void on_actionCut_Video_triggered();
     void on_actionOpen_Project_triggered();
     void on_actionSave_Project_triggered();
+    void on_actionSave_Project_As_triggered();
     void on_actionExit_triggered();
 
     void on_prev_media_file_clicked();
@@ -76,6 +77,7 @@ private:
     void refresh_total_length();
     bool can_close();
     void close_project();
+    void save_project(QString filename);
 
     int sprint_frametime(char* buffer, ssize_t index);
     QString frame_to_string(MediaFile* media_file, ssize_t index);
@@ -101,6 +103,8 @@ private:
     ssize_t cut_in = 0;
     ssize_t cut_out = 0;
     bool unsaved = false;
+
+    QString filename;
 
     QLabel total_length_label;
     QProgressDialog export_progress;
