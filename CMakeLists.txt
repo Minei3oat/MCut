@@ -29,18 +29,18 @@ set(PROJECT_SOURCES
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(MCut
+    qt_add_executable(mcut
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
     )
 else()
-    add_executable(MCut
+    add_executable(mcut
         ${PROJECT_SOURCES}
     )
 endif()
 
-target_link_libraries(MCut PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Widgets PkgConfig::LIBAV)
+target_link_libraries(mcut PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Widgets PkgConfig::LIBAV)
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(MCut)
+    qt_finalize_executable(mcut)
 endif()
