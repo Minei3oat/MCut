@@ -34,6 +34,10 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::change_media_file() {
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
     ui->current_media_file->setText(QString::fromStdString(media_files[current_media_file]->get_filename()));
     ui->position_slider->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
     ui->jump_to_frame->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
@@ -489,6 +493,10 @@ void MainWindow::on_delete_cut_clicked() {
 }
 
 void MainWindow::change_cut() {
+    if (!cuts[current_cut].media_file) {
+        return;
+    }
+
     for (int i = 0; i < num_media_files; i++) {
         if (media_files[i] == cuts[current_cut].media_file) {
             current_media_file = i;
