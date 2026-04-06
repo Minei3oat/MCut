@@ -118,7 +118,7 @@ void MediaFile::build_cache()
     progress.setMinimumDuration(0);
     progress.setWindowModality(Qt::ApplicationModal);
     progress.setValue(0);
-    progress.setRange(0, filesize >> 10);
+    progress.setRange(0, filesize >> 20);
     progress.setLabelText("Building Cache");
     progress.setCancelButton(NULL);
     progress.show();
@@ -130,8 +130,8 @@ void MediaFile::build_cache()
     packet_info_t *current = stream_infos[video_stream->index].infos;
     long start_pts = LONG_MIN;
     while (av_read_frame(format_context, packet) == 0) {
-        if (packet->pos != -1 && packet->pos >> 10 > progress.value()) {
-            progress.setValue(packet->pos >> 10);
+        if (packet->pos != -1 && packet->pos >> 20 > progress.value()) {
+            progress.setValue(packet->pos >> 20);
             QApplication::processEvents();
         }
         if (packet->flags & AV_PKT_FLAG_CORRUPT && frame_count) {
@@ -304,7 +304,7 @@ void MediaFile::build_cache()
 
     // cleanup
     av_packet_free(&packet);
-    progress.setValue(filesize >> 10);
+    progress.setValue(filesize >> 20);
 }
 
 /**
