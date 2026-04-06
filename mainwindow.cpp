@@ -75,8 +75,6 @@ void MainWindow::on_actionOpen_Video_triggered()
         return;
     }
 
-    ui->position_slider->setSliderPosition(0);
-
     // enable all relevant components
     ui->position_slider->setEnabled(true);
     ui->jump_to_frame->setEnabled(true);
@@ -1219,6 +1217,14 @@ void MainWindow::on_actionOpen_Project_triggered()
     // prepare UI
     change_cut();
     render_frame();
+
+    // enable all relevant components
+    ui->position_slider->setEnabled(true);
+    ui->jump_to_frame->setEnabled(true);
+    ui->go_cut_in->setEnabled(true);
+    ui->go_cut_out->setEnabled(true);
+    ui->set_cut_in->setEnabled(true);
+    ui->set_cut_out->setEnabled(true);
 }
 
 
