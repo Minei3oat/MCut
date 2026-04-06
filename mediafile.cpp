@@ -412,8 +412,7 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     frame->pts = target_pts-1;
     while(frame->pts < target_pts) {
         if (av_read_frame(format_context, packet)) {
-            puts("failed to read packet");
-            av_packet_unref(packet);
+            avcodec_send_packet(codec_context, NULL);
             break;
         }
         if (packet->stream_index == video_stream->index && packet->pts >= start_pts) {
@@ -426,8 +425,7 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
         av_packet_unref(packet);
     }
 
-    // flush decoder
-    avcodec_send_packet(codec_context, NULL);
+    // get last frames
     while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
         // printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
     }
