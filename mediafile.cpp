@@ -647,6 +647,20 @@ ssize_t MediaFile::offset_after_pts(int64_t pts) const {
 }
 
 /**
+ * Get a stream
+ * @param index The index of the stream
+ * @return The stream or NULL
+ */
+const AVStream* MediaFile::get_stream(size_t index) const
+{
+    if (index >= format_context->nb_streams) {
+        return NULL;
+    } else {
+        return format_context->streams[index];
+    }
+}
+
+/**
  * Create a decode context for the video stream of the given medie file. The returned software codec context must be freed manually
  * @return The codec context for decoding the video stream
  */
@@ -682,6 +696,16 @@ AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel)
     }
 
     return decode_context;
+}
+
+/**
+ * Get the next packet from file. This is a wrapper around av_read_frame
+ * @param packet AVPacket to store the packet
+ * @return 0 on success, < 0 on error
+ */
+int MediaFile::next_packet(AVPacket* packet)
+{
+    return av_read_frame(format_context, packet);
 }
 
 /**

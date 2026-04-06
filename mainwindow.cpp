@@ -719,7 +719,6 @@ int64_t MainWindow::flush_encode_context(AVCodecContext** encode_context, AVForm
  * @return The dts of the next frame
  */
 int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in, ssize_t cut_out, AVFormatContext* output_context, AVStream* output_stream, int64_t start_dts, int64_t pts_offset, AVCodecContext* encode_context) {
-    AVFormatContext* format_context = media_file->get_format_context();
     const AVStream* video_stream = media_file->get_video_stream();
     const packet_info_t * frame_infos = media_file->get_frame_info(0);
 
@@ -745,7 +744,7 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
     printf("start_pts: %ld; end_pts = %ld\n", start_pts, end_pts);
     int64_t last_pts = start_pts;
     while (last_pts < end_pts) {
-        if (av_read_frame(format_context, packet)) {
+        if (media_file->next_packet(packet)) {
             puts("failed to read packet");
             break;
         }
@@ -815,7 +814,6 @@ void MainWindow::on_actionCut_Video_triggered()
     avformat_alloc_output_context2(&output_context, NULL, NULL, filename.c_str());
 
     // get infos
-    AVFormatContext* format_context = cuts[0].media_file->get_format_context();
     const AVStream* video_stream = cuts[0].media_file->get_video_stream();
     const packet_info_t * frame_infos = cuts[0].media_file->get_frame_info(0);
 
@@ -834,9 +832,9 @@ void MainWindow::on_actionCut_Video_triggered()
     av_dict_copy(&output_video_stream->metadata, video_stream->metadata, 0);
 
     // analyze streams
-    for (int i = 0; i < format_context->nb_streams; i++)
+    for (int i = 0; i < cuts[0].media_file->get_stream_count(); i++)
     {
-        const AVStream* input_stream = format_context->streams[i];
+        const AVStream* input_stream = cuts[0].media_file->get_stream(i);
         if (!input_stream) {
             continue;
         }
@@ -915,22 +913,21 @@ void MainWindow::on_actionCut_Video_triggered()
     for (int i = 0; i < num_cuts - 1; i++) {
         puts("================================");
         // get infos
-        AVFormatContext* format_context = cuts[i].media_file->get_format_context();
         const AVStream* video_stream = cuts[i].media_file->get_video_stream();
         const packet_info_t * frame_infos = cuts[i].media_file->get_frame_info(0);
 
         // create local stream map
-        int* stream_map = (int*)malloc(format_context->nb_streams * sizeof(int));
-        for (int j = 0; j < format_context->nb_streams; j++) {
+        int* stream_map = (int*)malloc(cuts[i].media_file->get_stream_count() * sizeof(int));
+        for (int j = 0; j < cuts[i].media_file->get_stream_count(); j++) {
             int skip = 0;
             for (int k = 0; k < j; k++) {
-                if (format_context->streams[j]->codecpar->codec_id == format_context->streams[k]->codecpar->codec_id) {
+                if (cuts[i].media_file->get_stream(j)->codecpar->codec_id == cuts[i].media_file->get_stream(k)->codecpar->codec_id) {
                     skip += 1;
                 }
             }
             stream_map[j] = -1;
             for (int k = 0; k < output_context->nb_streams; k++) {
-                if (output_context->streams[k]->codecpar->codec_id == format_context->streams[j]->codecpar->codec_id) {
+                if (output_context->streams[k]->codecpar->codec_id == cuts[i].media_file->get_stream(j)->codecpar->codec_id) {
                     if (skip == 0) {
                         stream_map[j] = k;
                         printf("found matching stream: %d -> %d\n", j, k);
@@ -1002,7 +999,7 @@ void MainWindow::on_actionCut_Video_triggered()
             // calculate audio desync
             int64_t margin = packet_length_dts;
             if (i > 0) {
-                for (int j = 0; j < format_context->nb_streams; j++) {
+                for (int j = 0; j < cuts[i].media_file->get_stream_count(); j++) {
                     if (cuts[i].media_file->is_audio_stream(j)) {
                         const packet_info_t* info = cuts[i].media_file->get_packet_info(j, start_pts);
                         if (info == NULL || stream_map[j] == -1) {
@@ -1040,7 +1037,7 @@ void MainWindow::on_actionCut_Video_triggered()
             printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
             while (last_offset <= loop_end) {
                 av_packet_unref(packet);
-                if (av_read_frame(format_context, packet)) {
+                if (cuts[i].media_file->next_packet(packet)) {
                     puts("failed to read packet");
                     break;
                 }

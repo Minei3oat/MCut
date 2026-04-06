@@ -50,6 +50,7 @@ public:
     ssize_t offset_after_pts(int64_t pts) const;
 
     ssize_t get_frame_count() const { return stream_infos[video_stream->index].num_infos; }
+    ssize_t get_stream_count() const { return format_context->nb_streams; }
     int get_reorder_length() const { return reorder_length; }
     int get_max_bframes() const { return max_bframes; }
     int get_gop_size() const { return gop_size; }
@@ -59,8 +60,10 @@ public:
     const packet_info_t* get_frame_info(ssize_t frame_index) const;
     const packet_info_t* get_packet_info(int stream_index, int64_t pts) const;
     const AVStream* get_video_stream() const { return video_stream; }
-    AVFormatContext* get_format_context() { return format_context; }
     AVCodecContext* get_video_decode_context(bool hw_accel = false);
+    const AVStream* get_stream(size_t index) const;
+
+    int next_packet(AVPacket* packet);
 
     bool is_audio_stream(int stream_index) const;
 
