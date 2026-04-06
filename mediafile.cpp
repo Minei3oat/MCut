@@ -422,7 +422,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     }
 
     av_packet_free(&packet);
-    avcodec_free_context(&codec_context);
     return frame;
 }
 
@@ -634,11 +633,16 @@ ssize_t MediaFile::offset_after_pts(int64_t pts) const {
 }
 
 /**
- * Create a decode context for the video stream of the given medie file. The returned codec context must be freed manually
+ * Create a decode context for the video stream of the given medie file. The returned software codec context must be freed manually
  * @return The codec context for decoding the video stream
  */
-AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel) const
+AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel)
 {
+    if (hw_accel && codec_context) {
+        avcodec_flush_buffers(codec_context);
+        return codec_context;
+    }
+
     // get decoder
     const AVCodec *decoder = avcodec_find_decoder(video_stream->codecpar->codec_id);
     AVCodecContext *decode_context = avcodec_alloc_context3(decoder);
@@ -658,6 +662,10 @@ AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel) const
     // printf("has bframes: %d\n", codec_context->has_b_frames);
 
     avcodec_open2(decode_context, decoder, NULL);
+
+    if (hw_accel && hw_config) {
+        codec_context = decode_context;
+    }
 
     return decode_context;
 }

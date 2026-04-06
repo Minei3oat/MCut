@@ -59,7 +59,7 @@ public:
     const packet_info_t* get_packet_info(int stream_index, int64_t pts) const;
     const AVStream* get_video_stream() const { return video_stream; }
     AVFormatContext* get_format_context() { return format_context; }
-    AVCodecContext* get_video_decode_context(bool hw_accel = false) const;
+    AVCodecContext* get_video_decode_context(bool hw_accel = false);
 
     bool is_audio_stream(int stream_index) const;
 
@@ -72,6 +72,7 @@ private:
 
     std::string filename;
     AVFormatContext *format_context = NULL;
+    AVCodecContext *codec_context = NULL;
     const AVCodecHWConfig *hw_config = NULL;
     int reorder_length = 0;
     int max_bframes = 0;
