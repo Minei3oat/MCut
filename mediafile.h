@@ -69,6 +69,7 @@ public:
 private:
     void build_cache();
     void detect_hardware_decoding();
+
     AVFrame* get_raw_frame(ssize_t frame_index);
 
     std::string filename;

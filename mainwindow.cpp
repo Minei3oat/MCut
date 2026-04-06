@@ -725,8 +725,7 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
 
     AVCodecContext* decode_context = media_file->get_video_decode_context();
 
-    ssize_t iframe_before = media_file->find_iframe_before(cut_in);
-    ssize_t current = iframe_before;
+    ssize_t current = media_file->find_iframe_before(cut_in);
 
     // preparations
     AVPacket* packet = av_packet_alloc();

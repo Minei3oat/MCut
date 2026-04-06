@@ -396,7 +396,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
 
     // get some infos
     int64_t target_pts = stream_info->infos[frame_index].pts;
-    int64_t target_dts = stream_info->infos[frame_index].dts;
     int64_t start_pts  = stream_info->infos[current].pts;
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
@@ -419,7 +418,6 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
         }
         if (packet->stream_index == video_stream->index && packet->pts >= start_pts) {
             // printf("found packet with dts/pts %ld/%ld\n", packet->dts, packet->pts);
-            AVCodecParserContext* parser = av_stream_get_parser(video_stream);
             avcodec_send_packet(codec_context, packet);
             while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
                 // printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
