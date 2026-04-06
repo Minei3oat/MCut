@@ -738,9 +738,7 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
     printf("packet duration: %ld\n", duration);
 
     // transcode video packets
-    int64_t offset = frame_infos[current].offset;
-    if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-        puts("Seek failed");
+    if (media_file->seek(current) < 0) {
         return AV_NOPTS_VALUE;
     }
     int64_t end_pts = frame_infos[cut_out].pts + duration;
@@ -1028,17 +1026,15 @@ void MainWindow::on_actionCut_Video_triggered()
             }
 
             // seek to start
-            int64_t offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts - margin);
-            if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-                puts("Seek failed");
+            if (cuts[i].media_file->seek(cuts[i].cut_in) < 0) {
                 return;
             }
 
             // remux frames between first i-frame and last p-frame
             AVPacket *packet = av_packet_alloc();
-            int64_t last_offset = offset;
+            int64_t last_offset = cuts[i].media_file->offset_before_pts(frame_infos[cuts[i].cut_in].pts - margin);
             int64_t loop_end = cuts[i].media_file->offset_after_pts(end_pts + packet_length_dts * cuts[i].media_file->get_gop_size());
-            printf("Looping from %ld to %ld\n", offset, loop_end);
+            printf("Looping from %ld to %ld\n", last_offset, loop_end);
             printf("new pts: %ld to %ld\n", remux_start_pts, remux_end_pts);
             while (last_offset <= loop_end) {
                 av_packet_unref(packet);

@@ -38,6 +38,7 @@ public:
     MediaFile(const std::string& filename);
     ~MediaFile();
 
+    int seek(ssize_t frame_index);
     AVFrame* get_frame(ssize_t frame_index);
 
     ssize_t find_iframe_before(ssize_t search) const;

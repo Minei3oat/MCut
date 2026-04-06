@@ -358,6 +358,27 @@ void MediaFile::detect_hardware_decoding()
 }
 
 /**
+ * Seek to a key frame before the given frame by index
+ * @param frame_index The frame index to seek to
+ * @return >= 0 on success, AVError on failure
+ */
+int MediaFile::seek(ssize_t frame_index)
+{
+    // find keyframe
+    int iframe = find_iframe_before(frame_index);
+    // printf("starting decoding at frame %d\n", current);
+
+    // get frame
+    int64_t offset = stream_infos[video_stream->index].infos[iframe].offset;
+    int error = avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE);
+    if (error < 0) {
+        puts("Seek failed");
+    }
+
+    return error;
+}
+
+/**
  * Extract a raw frame by index
  * @param frame_index  The frame index to extract
  * @return The extracted raw frame or NULL on failure
@@ -380,16 +401,13 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
+    if (seek(current) < 0) {
+        return NULL;
+    }
+
     // preparations
     AVPacket *packet = av_packet_alloc();
     AVFrame *frame = av_frame_alloc();
-
-    // get frame
-    int64_t offset = stream_info->infos[current].offset;
-    if (avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE) < 0) {
-        puts("Seek failed");
-        return frame;
-    }
 
     // decode frame
     frame->pts = target_pts-1;
