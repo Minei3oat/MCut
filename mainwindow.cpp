@@ -836,25 +836,28 @@ void MainWindow::on_actionCut_Video_triggered()
     // analyze streams
     for (int i = 0; i < format_context->nb_streams; i++)
     {
-        if (i == video_stream->index) {
+        const AVStream* input_stream = format_context->streams[i];
+        if (!input_stream) {
+            continue;
+        }
+
+        // only copy audio and subtitle streams
+        if (input_stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO && input_stream->codecpar->codec_type != AVMEDIA_TYPE_SUBTITLE) {
             continue;
         }
 
         // check if codec is compatible with container
-        AVStream* input_stream = format_context->streams[i];
         if (!avformat_query_codec(output_context->oformat, input_stream->codecpar->codec_id, FF_COMPLIANCE_NORMAL)) {
             printf("Skipping incompatible stream %d\n", i);
             continue;
         }
 
-        // copy audio and subtitles
-        if (input_stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO || input_stream->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
-            AVStream* output_stream = avformat_new_stream(output_context, NULL);
-            avcodec_parameters_copy(output_stream->codecpar, input_stream->codecpar);
-            output_stream->codecpar->codec_tag = 0;
-            output_stream->disposition = input_stream->disposition;
-            av_dict_copy(&output_stream->metadata, input_stream->metadata, 0);
-        }
+        // copy stream
+        AVStream* output_stream = avformat_new_stream(output_context, NULL);
+        avcodec_parameters_copy(output_stream->codecpar, input_stream->codecpar);
+        output_stream->codecpar->codec_tag = 0;
+        output_stream->disposition = input_stream->disposition;
+        av_dict_copy(&output_stream->metadata, input_stream->metadata, 0);
     }
 
     // set max interleave delta
