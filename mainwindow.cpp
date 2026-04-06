@@ -746,19 +746,18 @@ int64_t MainWindow::transcode_video_frames(MediaFile* media_file, ssize_t cut_in
     int64_t end_pts = frame_infos[cut_out].pts + duration;
     int64_t start_pts = frame_infos[cut_in].pts;
     printf("start_pts: %ld; end_pts = %ld\n", start_pts, end_pts);
-    int64_t last_pos = 0;
-    int64_t end_pos = media_file->offset_after_pts(end_pts);
-    while (last_pos <= end_pos) {
+    int64_t last_pts = start_pts;
+    while (last_pts < end_pts) {
         if (av_read_frame(format_context, packet)) {
             puts("failed to read packet");
             break;
         }
-        last_pos = packet->pos;
 
         // printf("Found packet from stream %d with dts %ld and pts %ld\n", packet->stream_index, packet->dts, packet->pts);
         if (packet->stream_index == video_stream->index) {
             avcodec_send_packet(decode_context, packet);
             while (avcodec_receive_frame(decode_context, frame) == 0) {
+                last_pts = frame->pts;
                 // skip frames just needed for decoding
                 if (frame->pts < start_pts || frame->pts >= end_pts) {
 #ifdef TRACE
