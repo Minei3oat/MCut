@@ -42,14 +42,26 @@ void MainWindow::change_media_file() {
         return;
     }
 
-    ui->current_media_file->setText(QString::fromStdString(media_files[current_media_file]->get_filename()));
-    ui->position_slider->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
-    ui->jump_to_frame->setMaximum(media_files[current_media_file]->get_frame_count() - 1);
+    MediaFile* media_file = media_files[current_media_file];
+
+    // check wether media file is in use
+    bool in_use = false;
+    for (int i = 0; i < num_cuts-1; i++) {
+        if (cuts[i].media_file == media_file) {
+            in_use = true;
+            break;
+        }
+    }
+
+    ui->current_media_file->setText(QString::fromStdString(media_file->get_filename()));
+    ui->position_slider->setMaximum(media_file->get_frame_count() - 1);
+    ui->jump_to_frame->setMaximum(media_file->get_frame_count() - 1);
 
     // enable/disable buttons
     ui->prev_media_file->setEnabled(current_media_file > 0);
     ui->next_media_file->setEnabled(current_media_file < num_media_files - 1);
-    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_files[current_media_file]->get_frame_count());
+    ui->add_cut->setEnabled(num_cuts < MAX_CUTS - 1 && cut_in <= cut_out && cut_out < media_file->get_frame_count());
+    ui->close_video->setEnabled(!in_use);
 
     render_frame();
 }
@@ -380,6 +392,7 @@ void MainWindow::close_project()
     ui->set_cut_out->setEnabled(false);
     ui->prev_media_file->setEnabled(false);
     ui->next_media_file->setEnabled(false);
+    ui->close_video->setEnabled(false);
     ui->prev_cut->setEnabled(false);
     ui->next_cut->setEnabled(false);
     ui->add_cut->setEnabled(false);
@@ -473,6 +486,41 @@ void MainWindow::on_add_cut_clicked() {
 
     // update number of cuts and total runtime
     refresh_total_length();
+}
+
+void MainWindow::on_close_video_clicked()
+{
+    if (current_media_file < 0 || current_media_file >= num_media_files) {
+        return;
+    }
+
+    // just close project if only one media file open
+    if (num_media_files == 1 && num_cuts == 1) {
+        close_project();
+        return;
+    }
+
+    MediaFile* media_file = media_files[current_media_file];
+
+    // check that media file is not in use
+    for (int i = 0; i < num_cuts-1; i++) {
+        if (cuts[i].media_file == media_file) {
+            return;
+        }
+    }
+
+    // delete media file
+    delete media_file;
+    memmove(media_files + current_media_file, media_files + current_media_file + 1, sizeof(*media_files) * (num_media_files - current_media_file - 1));
+    num_media_files--;
+    media_files[num_media_files] = NULL;
+    current_media_file--;
+    if (current_media_file < 0 && num_media_files > 0) {
+        current_media_file = 0;
+    }
+
+    // update UI
+    change_media_file();
 }
 
 void MainWindow::on_delete_cut_clicked() {

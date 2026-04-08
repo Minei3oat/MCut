@@ -73,6 +73,8 @@ private slots:
     void on_go_cut_in_clicked();
     void on_go_cut_out_clicked();
 
+    void on_close_video_clicked();
+
     void on_add_cut_clicked();
     void on_delete_cut_clicked();
 

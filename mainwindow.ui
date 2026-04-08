@@ -467,6 +467,28 @@
      <number>10</number>
     </property>
    </widget>
+   <widget class="QPushButton" name="close_video">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>480</y>
+      <width>80</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Close Video</string>
+    </property>
+    <property name="shortcut">
+     <string>Q</string>
+    </property>
+    <property name="autoRepeatInterval">
+     <number>10</number>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
