@@ -666,7 +666,7 @@ void MainWindow::render_frame()
     av_frame_free(&rgb);
 
     gettimeofday(&end, NULL);
-    // printf("rendered frame in %lu us\n", end.tv_usec-start.tv_usec);
+    // printf("rendered frame in %lu us\n", (end.tv_sec-start.tv_sec)*1000000 + end.tv_usec-start.tv_usec);
 }
 
 /**
@@ -1243,6 +1243,7 @@ void MainWindow::on_actionOpen_Project_triggered()
                     this->cuts[num_cuts].media_file = file_mapping[index];
                 }
             }
+            printf("Cut %2zd: %8ld - %8ld --- %s\n", num_cuts, this->cuts[num_cuts].cut_in, this->cuts[num_cuts].cut_out, this->cuts[num_cuts].media_file->get_filename().c_str());
             num_cuts++;
         }
     }
