@@ -1220,6 +1220,7 @@ void MainWindow::on_actionOpen_Project_triggered()
     }
 
     // import cuts
+    num_cuts = 0;
     if (const QJsonValue v = project["cuts"]; v.isArray()) {
         QJsonArray cuts = v.toArray();
         for (const QJsonValue &cut : cuts) {
@@ -1244,6 +1245,9 @@ void MainWindow::on_actionOpen_Project_triggered()
             }
             num_cuts++;
         }
+    }
+    if (num_cuts == 0) {
+        num_cuts = 1;
     }
 
     // cleanup
