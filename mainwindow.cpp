@@ -1189,7 +1189,7 @@ void MainWindow::on_actionOpen_Project_triggered()
     }
 
     // select file
-    QString filename = QFileDialog::getOpenFileName(this, "Open Video");
+    QString filename = QFileDialog::getOpenFileName(this, "Open Project");
     if (filename.isEmpty()) {
         return;
     }
