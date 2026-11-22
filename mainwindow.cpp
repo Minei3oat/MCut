@@ -863,13 +863,22 @@ void MainWindow::on_actionCut_Video_triggered()
     const AVStream* video_stream = cuts[0].media_file->get_video_stream();
     const packet_info_t * frame_infos = cuts[0].media_file->get_frame_info(0);
 
-    // add streams
+    // add video stream
     AVStream *output_video_stream = avformat_new_stream(output_context, NULL);
     avcodec_parameters_copy(output_video_stream->codecpar, video_stream->codecpar);
     output_video_stream->codecpar->codec_tag = 0;
     output_video_stream->avg_frame_rate = video_stream->avg_frame_rate;
     output_video_stream->time_base = video_stream->time_base;
-    printf("video: %d/%d, codec: %d/%d\n", video_stream->sample_aspect_ratio.num, video_stream->sample_aspect_ratio.den, video_stream->codecpar->sample_aspect_ratio.num, video_stream->codecpar->sample_aspect_ratio.den);
+    AVFrame* frame = cuts[0].media_file->get_frame(cuts[0].cut_in);
+    AVRational aspect_ratio = {0, 1};
+    if (frame) {
+        aspect_ratio = frame->sample_aspect_ratio;
+    }
+    printf("frame: %d/%d, video: %d/%d, codec: %d/%d\n", aspect_ratio.num, aspect_ratio.den, video_stream->sample_aspect_ratio.num, video_stream->sample_aspect_ratio.den, video_stream->codecpar->sample_aspect_ratio.num, video_stream->codecpar->sample_aspect_ratio.den);
+    if (aspect_ratio.num != 0) {
+        output_video_stream->sample_aspect_ratio = aspect_ratio;
+        output_video_stream->codecpar->sample_aspect_ratio = aspect_ratio;
+    }
     if (output_video_stream->sample_aspect_ratio.num == 0) {
         output_video_stream->sample_aspect_ratio = output_video_stream->codecpar->sample_aspect_ratio;
     }
