@@ -440,6 +440,7 @@ void MainWindow::save_project(QString filename)
     project["cuts"] = cuts;
 
     project["current_cut"] = (qint64) current_cut;
+    project["current_media_file"] = (qint64) current_media_file;
 
     // save json to file
     QFile file(filename);
@@ -1278,7 +1279,15 @@ void MainWindow::on_actionOpen_Project_triggered()
 
     // prepare UI
     change_cut();
-    render_frame();
+
+    // load current media file & render frame
+    if (const QJsonValue v = project["current_media_file"]; v.isDouble()) {
+        size_t index = v.toInteger();
+        if (index >= 0 && index < num_media_files) {
+            current_media_file = index;
+        }
+    }
+    change_media_file();
 
     // enable all relevant components
     ui->position_slider->setEnabled(true);
