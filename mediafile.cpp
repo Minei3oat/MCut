@@ -369,8 +369,8 @@ int MediaFile::seek(ssize_t frame_index)
     // printf("starting decoding at frame %d\n", current);
 
     // get frame
-    int64_t offset = stream_infos[video_stream->index].infos[iframe].offset;
-    int error = avformat_seek_file(format_context, video_stream->index, offset-64, offset, offset+64, AVSEEK_FLAG_BYTE);
+    int64_t dts = stream_infos[video_stream->index].infos[iframe].dts;
+    int error = avformat_seek_file(format_context, video_stream->index, 0, dts, dts, 0);
     if (error < 0) {
         puts("Seek failed");
     }
