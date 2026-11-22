@@ -389,18 +389,19 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     AVCodecContext *codec_context = get_video_decode_context(true);
 
     // find keyframe
-    int current = find_iframe_before(frame_index);
-    // printf("starting decoding at frame %d\n", current);
+    int iframe_before = find_iframe_before(frame_index);
+    // printf("starting decoding at frame %d\n", iframe_before);
 
     stream_info_t* stream_info = stream_infos + video_stream->index;
 
     // get some infos
     int64_t target_pts = stream_info->infos[frame_index].pts;
-    int64_t start_pts  = stream_info->infos[current].pts;
+    int64_t target_dts = stream_info->infos[frame_index].dts;
+    int64_t start_pts  = stream_info->infos[iframe_before].pts;
     // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
-    if (seek(current) < 0) {
+    if (seek(iframe_before) < 0) {
         return NULL;
     }
 
@@ -409,13 +410,14 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     AVFrame *frame = av_frame_alloc();
 
     // decode frame
-    frame->pts = target_pts-1;
-    while(frame->pts < target_pts) {
+    frame->pts = target_pts - 1;
+    int64_t last_dts = INT64_MIN;
+    while(last_dts < target_dts) {
         if (av_read_frame(format_context, packet)) {
-            avcodec_send_packet(codec_context, NULL);
             break;
         }
         if (packet->stream_index == video_stream->index && packet->pts >= start_pts) {
+            last_dts = packet->dts;
             // printf("found packet with dts/pts %ld/%ld\n", packet->dts, packet->pts);
             avcodec_send_packet(codec_context, packet);
             while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
@@ -426,6 +428,7 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     }
 
     // get last frames
+    avcodec_send_packet(codec_context, NULL);
     while (frame->pts != target_pts && avcodec_receive_frame(codec_context, frame) == 0) {
         // printf("got frame with pts %ld and type %c\n", frame->pts, av_get_picture_type_char(frame->pict_type));
     }
@@ -705,7 +708,11 @@ AVCodecContext* MediaFile::get_video_decode_context(bool hw_accel)
  */
 int MediaFile::next_packet(AVPacket* packet)
 {
-    return av_read_frame(format_context, packet);
+    int result = av_read_frame(format_context, packet);
+    if (result == 0 && packet->flags & AV_PKT_FLAG_CORRUPT) {
+        printf("found corrupt packet in stream %d at pts %ld\n", packet->stream_index, packet->pts);
+    }
+    return result;
 }
 
 /**
