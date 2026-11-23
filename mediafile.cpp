@@ -366,7 +366,7 @@ int MediaFile::seek(ssize_t frame_index)
 {
     // find keyframe
     int iframe = find_iframe_before(frame_index);
-    // printf("starting decoding at frame %d\n", current);
+    // printf("starting decoding at frame %d\n", iframe);
 
     // get frame
     int64_t dts = stream_infos[video_stream->index].infos[iframe].dts;
@@ -388,20 +388,14 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
     // get decoder
     AVCodecContext *codec_context = get_video_decode_context(true);
 
-    // find keyframe
-    int iframe_before = find_iframe_before(frame_index);
-    // printf("starting decoding at frame %d\n", iframe_before);
-
     stream_info_t* stream_info = stream_infos + video_stream->index;
 
     // get some infos
     int64_t target_pts = stream_info->infos[frame_index].pts;
     int64_t target_dts = stream_info->infos[frame_index].dts;
-    int64_t start_pts  = stream_info->infos[iframe_before].pts;
-    // printf("start  pts: %ld\n", start_pts);
     // printf("target pts: %ld\n", target_pts);
 
-    if (seek(iframe_before) < 0) {
+    if (seek(frame_index) < 0) {
         return NULL;
     }
 
@@ -416,7 +410,7 @@ AVFrame* MediaFile::get_raw_frame(ssize_t frame_index)
         if (av_read_frame(format_context, packet)) {
             break;
         }
-        if (packet->stream_index == video_stream->index && packet->pts >= start_pts) {
+        if (packet->stream_index == video_stream->index) {
             last_dts = packet->dts;
             // printf("found packet with dts/pts %ld/%ld\n", packet->dts, packet->pts);
             avcodec_send_packet(codec_context, packet);
